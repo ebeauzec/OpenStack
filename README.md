@@ -45,7 +45,7 @@ python -m http.server 8000
 # Node.js
 npx http-server -p 8000
 ```
-Open **[http://localhost:8000/index.html](http://localhost:8000/index.html)** in your browser.
+Open **index.html(http://index.html)** in your browser.
 
 ### 2. Standalone Single-File Compilation
 To compile the entire app (HTML + CSS + JS) into a single standalone HTML page for air-gapped systems, execute the bundler:
