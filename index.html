@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenStack Architecture & Sizing Tool | CSP Edition</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Stepper -->
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          OpenStack Design
+        </h1>
+        <p>CSP Architecture & Sizing Tool</p>
+      </div>
+
+      <ul class="stepper" id="stepper">
+        <li class="step-item active" data-step="1">
+          <span class="step-number">1</span>
+          <span class="step-label">Scope & Profile</span>
+        </li>
+        <li class="step-item" data-step="2">
+          <span class="step-number">2</span>
+          <span class="step-label">Compute Node Sizing</span>
+        </li>
+        <li class="step-item" data-step="3">
+          <span class="step-number">3</span>
+          <span class="step-label">Cinder Block Storage</span>
+        </li>
+        <li class="step-item" data-step="4">
+          <span class="step-number">4</span>
+          <span class="step-label">Manila Shared Files</span>
+        </li>
+        <li class="step-item" data-step="5">
+          <span class="step-number">5</span>
+          <span class="step-label">Ceph OSD Sizing</span>
+        </li>
+        <li class="step-item" data-step="6">
+          <span class="step-number">6</span>
+          <span class="step-label">Security & Subnets</span>
+        </li>
+        <li class="step-item" data-step="7">
+          <span class="step-number">7</span>
+          <span class="step-label">HLD, LLD & Playbooks</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <p>V1.3.0 • Production Ready</p>
+        <p>Best Practices Compliance Engine</p>
+      </div>
+    </aside>
+
+    <!-- Right-hand flex container for main and bottom topology -->
+    <div class="right-container">
+      <!-- Main Content Panel -->
+      <main class="main-content">
+        <!-- Sticky Wizard Navigation Header -->
+        <header class="wizard-nav-header">
+          <div class="wizard-nav-title">
+            <span class="nav-badge">Configuration Wizard</span>
+          </div>
+          <div class="wizard-nav-buttons">
+            <button class="btn btn-reset" id="btn-reset" title="Reset all configuration inputs to default greenfield parameters">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              Reset Greenfield
+            </button>
+            <button class="btn btn-secondary" id="btn-save" title="Export current configuration to JSON file">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Save Config
+            </button>
+            <button class="btn btn-secondary" id="btn-load" title="Import configuration from a JSON file">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Load Config
+            </button>
+            <input type="file" id="load-config-input" accept=".json" style="display: none;">
+            <button class="btn btn-secondary" id="btn-prev" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              Back
+            </button>
+            <button class="btn btn-primary" id="btn-next">
+              Next Step
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- STEP 1: PROJECT SCOPE & COMPLIANCE -->
+      <section class="step-panel active" id="step-panel-1">
+        <div class="card">
+          <div class="step-header">
+            <h2>Cloud Service Provider Profile</h2>
+            <p>Establish cloud capacity targets, industrial profile, and security compliance constraints.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section">
+              <div class="form-group">
+                <label for="projectName">Project name</label>
+                <input type="text" id="projectName" value="CSP Cloud Production-West" placeholder="e.g. NextGen Cloud Core">
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="openstackDistro">OpenStack Distribution</label>
+                  <select id="openstackDistro">
+                    <option value="kolla" selected>Kolla-Ansible (Vanilla / Containerized)</option>
+                    <option value="juju">Canonical Charmed OpenStack (Juju)</option>
+                    <option value="rhosp">Red Hat Enterprise OpenStack (RHOSP)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="openstackVersion">OpenStack Version</label>
+                  <select id="openstackVersion">
+                    <option value="2024.1" selected>2024.1 (Caracal)</option>
+                    <option value="2023.2">2023.2 (Bobcat)</option>
+                    <option value="zed">Zed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="cspScale">Planned Deployment Scale</label>
+                  <select id="cspScale">
+                    <option value="small">Small scale (~10-50 nodes)</option>
+                    <option value="medium" selected>Medium scale (~50-200 nodes)</option>
+                    <option value="large">Large/Enterprise scale (200-1000+ nodes)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="industry">Vertical / Industry Profile</label>
+                  <select id="industry">
+                    <option value="general">General Purpose CSP</option>
+                    <option value="financial" selected>Financial Services (High-Performance/Strict SLA)</option>
+                    <option value="healthcare">Healthcare & Life Sciences (HIPAA Isolated)</option>
+                    <option value="telecom">Telecom NFV (NESA High-Availability)</option>
+                    <option value="sovereign">Sovereign Gov Cloud (NCA / DESC Compliant)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Target Security/Compliance Policies</label>
+                <div class="checkbox-grid">
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="soc2" checked>
+                    <span>SOC 2 Type II</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="pci-dss" checked>
+                    <span>PCI-DSS v4.0</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="hipaa">
+                    <span>HIPAA Compl.</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="gdpr" checked>
+                    <span>GDPR Data Res.</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="nca_cscc">
+                    <span>Saudi NCA CSCC</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="desc_csp">
+                    <span>Dubai DESC CSP</span>
+                  </label>
+                  <label class="checkbox-tile">
+                    <input type="checkbox" name="compliance" value="nesa_ias">
+                    <span>UAE NESA IAS</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="ui-info-block" id="compliance-info">
+                <strong>Selected Profile Impact:</strong> Financial services mandates strict CPU isolation, a 1:1 memory-to-physical ratio (no overcommit), and TLS 1.3 encryption for backend storage pipelines. Rsyslog SIEM forwarding must be set to log API write operations and audit log entries.
+              </div>
+            </div>
+
+            <!-- Side summary widget -->
+            <div class="sizing-summary" id="summary-step-1">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                Real-time Sizing Stats
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Sizing Status</span>
+                  <span class="value summary-badge">Drafting Scope</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Controller HA Nodes</span>
+                  <span class="value">3 (Active/Active)</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Hardware Isolation</span>
+                  <span class="value">VLAN-segmented</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: COMPUTE & HYPERVISOR SIZING -->
+      <section class="step-panel" id="step-panel-2">
+        <div class="card">
+          <div class="step-header">
+            <h2>Compute & Hypervisor Sizing</h2>
+            <p>Define virtual machine profiles, target scale, overcommit limits, and physical compute hardware.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section">
+              <h3>Target Workload Specs</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="vmCount">
+                    Total Active VMs
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Total Active VMs</strong>
+                        Total number of virtual machines sizing targets.
+                        <br><em>Impact:</em> Drives physical node counts, network interface limits, and OVN database scaling.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="vmCount" value="400" min="10">
+                </div>
+                <div class="form-group">
+                  <label for="vmVcpus">
+                    vCPUs per VM (Avg)
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>vCPUs per VM</strong>
+                        Average virtual CPUs assigned to VMs.
+                        <br><em>Impact:</em> Determines the total physical core footprint needed on compute hypervisors.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="vmVcpus" value="4" min="1">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="vmRam">
+                    RAM per VM (GB, Avg)
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>vRAM per VM</strong>
+                        Average RAM allocated to virtual machines.
+                        <br><em>Impact:</em> Determines total physical RAM demands (GB) on compute hypervisors.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="vmRam" value="16" min="1">
+                </div>
+                <div class="form-group">
+                  <label for="vmDisk">
+                    Ephemeral Storage per VM (GB)
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Ephemeral Disk</strong>
+                        Local disk allocation size per instance.
+                        <br><em>Impact:</em> Configures local ephemeral disk sizing or Ceph RBD volume pool targets.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="vmDisk" value="50" min="0">
+                </div>
+              </div>
+
+              <h3>Overcommit Allocation Ratios</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="cpuOvercommit">
+                    CPU Overcommit (vCPU:Physical Core)
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>CPU Overcommit</strong>
+                        Ratio of virtual cores mapped to a single physical core.
+                        <br><em>Impact:</em> Writes <code>cpu_allocation_ratio</code> in <code>nova.conf</code>. Higher ratios increase host density but risk VM performance lag.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="cpuOvercommit" value="3" min="1" max="16" step="0.5">
+                </div>
+                <div class="form-group">
+                  <label for="ramOvercommit">
+                    RAM Overcommit (vRAM:Physical RAM)
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>RAM Overcommit</strong>
+                        Ratio of virtual RAM mapped to physical RAM.
+                        <br><em>Impact:</em> Writes <code>ram_allocation_ratio</code> in <code>nova.conf</code>. Enforced at 1.0 in production to prevent system swapping.
+                      </span>
+                    </span>
+                  </label>
+                  <input type="number" id="ramOvercommit" value="1" min="0.5" max="2" step="0.1">
+                </div>
+              </div>
+
+              <h3>Physical Node Specification</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="nodeCores">Cores per Physical Node</label>
+                  <input type="number" id="nodeCores" value="64" min="8">
+                </div>
+                <div class="form-group">
+                  <label for="nodeRam">RAM per Physical Node (GB)</label>
+                  <input type="number" id="nodeRam" value="256" min="16">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="nodeDisk">Local Disk per Node (GB, if Ephemeral)</label>
+                  <input type="number" id="nodeDisk" value="1000" min="0">
+                </div>
+                <div class="form-group">
+                  <label for="haBuffer">N+X HA Compute Buffer</label>
+                  <input type="number" id="haBuffer" value="2" min="1" max="10">
+                </div>
+              </div>
+
+              <h3>Nova Compute Customization</h3>
+              <div class="form-group-row" style="margin-bottom: 1.5rem;">
+                <div class="form-group">
+                  <label for="novaCpuMode">
+                    Nova CPU Mode
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Nova CPU Mode</strong>
+                        Specifies the instruction set and architecture features exposed to instances.
+                        <br><em>Impact:</em> Configures <code>cpu_mode</code> in <code>nova.conf</code>. 'host-passthrough' maximizes hardware capabilities but requires homogeneous host CPUs for live migration.
+                      </span>
+                    </span>
+                  </label>
+                  <select id="novaCpuMode">
+                    <option value="host-model" selected>Host Model (host-model)</option>
+                    <option value="host-passthrough">Host Passthrough (host-passthrough)</option>
+                    <option value="custom">Custom (Broadwell-noTSX)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; height: 100%;">
+                    <input type="checkbox" id="novaInstanceHa" style="margin: 0; width: auto;">
+                    <span style="font-weight: 600;">
+                      Enable Nova Instance HA
+                      <span class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <span class="tooltip-text">
+                          <strong>Nova Instance HA</strong>
+                          Orchestrates automatic evacuation and reboot of VMs when their hypervisor host experiences hardware failure.
+                          <br><em>Impact:</em> Configures scheduler filters and <code>resume_guests_state_on_host_boot = true</code> in <code>nova.conf</code>.
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <h3>Kubernetes Overlay (K8s on OpenStack)</h3>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer;">
+                  <input type="checkbox" id="enableK8s" style="margin: 0; width: auto;">
+                  <span style="font-weight: 600;">Enable Kubernetes VM Sizing Overlay</span>
+                </label>
+              </div>
+              <div id="k8s-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="k8sMasterCount">Master VMs Count</label>
+                    <input type="number" id="k8sMasterCount" value="3" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="k8sWorkerCount">Worker VMs Count</label>
+                    <input type="number" id="k8sWorkerCount" value="10" min="1">
+                  </div>
+                </div>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="k8sMasterVcpus">Master VM vCPUs</label>
+                    <input type="number" id="k8sMasterVcpus" value="4" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="k8sMasterRam">Master VM RAM (GB)</label>
+                    <input type="number" id="k8sMasterRam" value="16" min="1">
+                  </div>
+                </div>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="k8sWorkerVcpus">Worker VM vCPUs</label>
+                    <input type="number" id="k8sWorkerVcpus" value="8" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="k8sWorkerRam">Worker VM RAM (GB)</label>
+                    <input type="number" id="k8sWorkerRam" value="32" min="1">
+                  </div>
+                </div>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="k8sWorkerDisk">Worker VM Disk (GB)</label>
+                    <input type="number" id="k8sWorkerDisk" value="100" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="k8sCni">CNI Network Plugin</label>
+                    <select id="k8sCni">
+                      <option value="calico" selected>Calico (BGP / VXLAN)</option>
+                      <option value="cilium">Cilium (eBPF Routing)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="k8sCsi">Persistent Volume CSI Driver</label>
+                  <select id="k8sCsi">
+                    <option value="cinder" selected>OpenStack Cinder CSI</option>
+                    <option value="ceph-rbd">Ceph-RBD Native CSI</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                  <label class="checkbox-tile" style="padding: 0.6rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; background: rgba(255,255,255,0.01);">
+                    <input type="checkbox" id="enableVelero" style="margin: 0; width: auto;">
+                    <span style="font-weight: 500; font-size: 0.9rem;">Enable Velero Backups to StorageGrid S3</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sizing statistics panel -->
+            <div class="sizing-summary" id="summary-step-2">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                Hypervisor Results
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Total vCPUs Requested</span>
+                  <span class="value" id="calc-total-vcpus">1600</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Total RAM Requested</span>
+                  <span class="value" id="calc-total-ram">6400 GB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Nodes Required for CPU</span>
+                  <span class="value" id="calc-nodes-cpu">9</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Nodes Required for RAM</span>
+                  <span class="value" id="calc-nodes-ram">25</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Raw Compute Nodes</span>
+                  <span class="value" id="calc-raw-nodes">25</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Final Nodes (+ HA Buffer)</span>
+                  <span class="value summary-badge" id="calc-final-nodes">27 Nodes</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3: CINDER STORAGE DESIGN -->
+      <section class="step-panel" id="step-panel-3">
+        <div class="card">
+          <div class="step-header">
+            <h2>Cinder Block Storage Integration</h2>
+            <p>Determine overall volume capacity targets, choose backend storage solutions, and map out ports, data paths, and configuration specifics.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section">
+              <div class="form-group">
+                <label for="cinderCapacityTb">Total Usable Volume Capacity (TB)</label>
+                <input type="number" id="cinderCapacityTb" value="150" min="5">
+              </div>
+
+              <h3>Select Block Storage Backend Arrays (Select one or more)</h3>
+              <div class="backend-selector">
+                <div class="backend-card selected" data-backend="ceph">
+                  <div class="backend-title">
+                    <span>Ceph RBD (Recommended)</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Distributed software-defined storage using Native RADOS block devices. Standard OpenStack design.</div>
+                </div>
+
+                <div class="backend-card" data-backend="netapp">
+                  <div class="backend-title">
+                    <span>NetApp ONTAP SAN/NAS</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Enterprise hybrid array using iSCSI or NFS protocols. Advanced hardware compression/dedup.</div>
+                </div>
+
+                <div class="backend-card" data-backend="emc">
+                  <div class="backend-title">
+                    <span>Dell EMC PowerFlex</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Software-defined elastic block platform with massive scalability and dedicated SDC driver.</div>
+                </div>
+              </div>
+
+              <!-- Backend specific options -->
+              <div id="cinder-backend-specifics" class="backend-specifics">
+                <div id="cinder-opts-ceph" class="backend-opts-group">
+                  <div class="ui-info-block">
+                    <strong>Ceph Integration Parameters:</strong> Requires installation of <code>librbd1</code> on all Compute hosts. Blocks are mapped directly in QEMU, avoiding OS mount overhead. Port <strong>6789 (TCP)</strong> and OSD ports <strong>6800-7300 (TCP)</strong> must be open on the Storage network.
+                  </div>
+                </div>
+
+                <div id="cinder-opts-netapp" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="cinderNetappIp">NetApp Cluster IP / Hostname</label>
+                      <input type="text" id="cinderNetappIp" value="10.10.30.50">
+                    </div>
+                    <div class="form-group">
+                      <label for="cinderNetappSvm">ONTAP SVM (Storage Virtual Machine)</label>
+                      <input type="text" id="cinderNetappSvm" value="svm_cinder_prod">
+                    </div>
+                  </div>
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="cinderNetappProto">Storage Protocol</label>
+                      <select id="cinderNetappProto">
+                        <option value="iscsi" selected>iSCSI (Block device mapped to Nova via targetcli)</option>
+                        <option value="nfs">NFS (Filesystem mounting, raw files as disks)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="netappDedup">ONTAP Storage Efficiencies</label>
+                      <select id="netappDedup">
+                        <option value="true" selected>Deduplication & Compression Enabled</option>
+                        <option value="false">Thin Provisioning Only</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="cinder-opts-emc" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="cinderEmcIp">Dell PowerFlex Gateway IP</label>
+                      <input type="text" id="cinderEmcIp" value="10.10.30.60">
+                    </div>
+                    <div class="form-group">
+                      <label for="cinderEmcPool">PowerFlex Storage Pool</label>
+                      <input type="text" id="cinderEmcPool" value="sp_gold_cinder">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <h3>Cinder Volume Backup</h3>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer;">
+                  <input type="checkbox" id="enableCinderBackup" style="margin: 0; width: auto;">
+                  <span style="font-weight: 600;">Enable Cinder Volume Backups</span>
+                </label>
+              </div>
+              <div id="cinder-backup-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group">
+                  <label for="cinderBackupTarget">Cinder Backup Target Store</label>
+                  <select id="cinderBackupTarget">
+                    <option value="storagegrid" selected>NetApp StorageGrid S3 Object Store</option>
+                    <option value="ceph">Dedicated Ceph Backup Pool</option>
+                  </select>
+                </div>
+              </div>
+
+              <h3>Volume Encryption & DR Replication</h3>
+              <div class="form-group-row" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; height: 100%;">
+                    <input type="checkbox" id="enableBarbican" style="margin: 0; width: auto;">
+                    <span style="font-weight: 600;">
+                      Enable Volume Encryption (Barbican KMS)
+                      <span class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <span class="tooltip-text">
+                          <strong>Volume Encryption</strong>
+                          Secures tenant data-at-rest by encrypting virtual disks on block devices.
+                          <br><em>Impact:</em> Configures Barbican integration in <code>cinder.conf</code> and <code>nova.conf</code>. Hypervisor/QEMU encryption incurs 5-15% CPU load.
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; height: 100%;">
+                    <input type="checkbox" id="enableCinderReplication" style="margin: 0; width: auto;">
+                    <span style="font-weight: 600;">Enable Cinder DR Volume Replication</span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="barbican-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group">
+                  <label for="barbicanBackend">
+                    Barbican Key Manager Backend
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>KMS Secrets Backend</strong>
+                        Specifies where cryptographic master keys are stored.
+                        <br><em>Impact:</em> Determines secret storage interface in Barbican. Appends configuration parameters and deployment steps for Vault or SoftHSM.
+                      </span>
+                    </span>
+                  </label>
+                  <select id="barbicanBackend">
+                    <option value="vault" selected>HashiCorp Vault (Production-Grade External KMS)</option>
+                    <option value="softhsm">SoftHSMv2 (Software-Simulated HSM via PKCS#11)</option>
+                    <option value="pkcs11">Hardware HSM (PKCS#11 Vendor Library Integration)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="cinder-replication-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="cinderReplTarget">Replication Target IP / Cluster Name</label>
+                    <input type="text" id="cinderReplTarget" value="10.20.30.50">
+                  </div>
+                  <div class="form-group">
+                    <label for="cinderReplMode">Replication Sync Mode</label>
+                    <select id="cinderReplMode">
+                      <option value="async" selected>Asynchronous (Recommended for WAN/Multi-site)</option>
+                      <option value="sync">Synchronous (Requires low latency & high bandwidth)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <h3>Cinder Advanced Settings</h3>
+              <div class="form-group-row" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; height: 100%;">
+                    <input type="checkbox" id="cinderMultiAttach" style="margin: 0; width: auto;">
+                    <span style="font-weight: 600;">
+                      Enable Volume Multi-Attach
+                      <span class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <span class="tooltip-text">
+                          <strong>Volume Multi-Attach</strong>
+                          Allows mapping a single volume to multiple instances concurrently.
+                          <br><em>Impact:</em> Enables <code>enable_force_upload</code> in <code>cinder.conf</code> and overrides Ceph exclusive locks. Requires clustered filesystems (e.g. GFS2/OCFS2).
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer; height: 100%;">
+                    <input type="checkbox" id="cinderQosEnable" style="margin: 0; width: auto;">
+                    <span style="font-weight: 600;">
+                      Enable Cinder QoS Throttling
+                      <span class="tooltip-container">
+                        <span class="tooltip-icon">i</span>
+                        <span class="tooltip-text">
+                          <strong>Cinder QoS Throttling</strong>
+                          Limits virtual disk IOPS and bandwidth per volume.
+                          <br><em>Impact:</em> Generates Cinder QoS volume limits and associates rate-limiting policies to prevent hypervisor disk congestion.
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="cinder-qos-opts" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="cinderQosMaxIops">Max IOPS Limit per Volume</label>
+                    <input type="number" id="cinderQosMaxIops" value="5000" min="100">
+                  </div>
+                  <div class="form-group">
+                    <label for="cinderQosMaxBps">Max Throughput Limit (BPS)</label>
+                    <input type="number" id="cinderQosMaxBps" value="104857600" min="1048576">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Interactive Data Flow Diagram -->
+              <div class="diagram-container">
+                <span class="diagram-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  Interactive Data IO & Control Path
+                </span>
+                
+                <div class="flow-diagram">
+                  <div class="flow-node active" id="node-cinder-vm">
+                    <div class="flow-node-title">Tenant VM</div>
+                    <div class="flow-node-detail">Nova Compute Host</div>
+                  </div>
+                  <div class="flow-node active" id="node-cinder-svc">
+                    <div class="flow-node-title">Cinder Volume Service</div>
+                    <div class="flow-node-detail">cinder-volume API</div>
+                  </div>
+                  <div class="flow-node active" id="node-cinder-backend">
+                    <div class="flow-node-title" id="lbl-cinder-backend-node">Ceph Cluster</div>
+                    <div class="flow-node-detail" id="lbl-cinder-backend-proto">RADOS Protocol</div>
+                  </div>
+
+                  <svg class="flow-connections" viewBox="0 0 600 100">
+                    <path class="flow-path active" id="path-cinder-1" d="M 150 50 L 250 50" />
+                    <path class="flow-path active" id="path-cinder-2" d="M 350 50 L 450 50" />
+                  </svg>
+                </div>
+                <div class="ui-info-block" id="cinder-diagram-desc" style="width: 100%; margin: 0; font-size: 0.85rem;">
+                  <strong>Data Flow:</strong> The Libvirt driver running in Nova loads <code>librbd</code> to directly open the Cinder volume. Writing data routes via the <strong>Storage Frontend Network (VLAN 30)</strong> directly to the Ceph OSD nodes. Control tasks (create/delete) route via the Cinder API.
+                </div>
+              </div>
+            </div>
+
+            <!-- Sizing side widget -->
+            <div class="sizing-summary" id="summary-step-3">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+                Cinder Stats
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Usable Volume Cap</span>
+                  <span class="value" id="calc-cinder-cap">150 TB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Storage Backend</span>
+                  <span class="value" id="calc-cinder-backend">Ceph RBD</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">I/O Target Protocol</span>
+                  <span class="value" id="calc-cinder-proto">librbd (RADOS)</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Active Ports</span>
+                  <span class="value" id="calc-cinder-ports">6789, 6800-7300</span>
+                </div>
+                <div class="summary-item" id="cinder-dr-bw-row" style="display:none;">
+                  <span class="label">DR WAN Bandwidth</span>
+                  <span class="value" id="calc-cinder-dr-bw">0 Mbps</span>
+                </div>
+                <div class="summary-item" id="cinder-dr-lat-row" style="display:none;">
+                  <span class="label">DR WAN Latency Limit</span>
+                  <span class="value" id="calc-cinder-dr-lat">0 ms RTT</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 4: MANILA SHARED FILES DESIGN -->
+      <section class="step-panel" id="step-panel-4">
+        <div class="card">
+          <div class="step-header">
+            <h2>Manila Shared File Systems Integration</h2>
+            <p>Select shared file systems capacity, configure multi-tenant networking via DHSS (Driver Handles Share Servers), and review ports and security boundaries.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section">
+              <div class="form-group">
+                <label for="manilaCapacityTb">Total Usable Shared File Systems Capacity (TB)</label>
+                <input type="number" id="manilaCapacityTb" value="50" min="5">
+              </div>
+
+              <!-- DHSS selection with detailed explanations -->
+              <h3>Driver Handles Share Servers (DHSS) Mode</h3>
+              <div class="backend-selector" style="grid-template-columns: 1fr 1fr;">
+                <div class="backend-card" data-dhss="true">
+                  <div class="backend-title">
+                    <span>DHSS Enabled (DHSS = True)</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">
+                    <strong>Implications:</strong> Manila automatically provisions dedicated Share Servers (virtual machines, containers, or NetApp SVMs) dynamically inside tenant-isolated Neutron networks.
+                    <br><strong>Pros:</strong> High security, complete L3 isolation between tenants (DESC/NCA Compliant).
+                    <br><strong>Cons:</strong> High storage array overhead, complex setup, requires NetApp cluster API integration.
+                  </div>
+                </div>
+
+                <div class="backend-card selected" data-dhss="false">
+                  <div class="backend-title">
+                    <span>DHSS Disabled (DHSS = False)</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">
+                    <strong>Implications:</strong> Manila routes all traffic to pre-existing, static storage network interfaces. Separation is managed at the filesystem layer.
+                    <br><strong>Pros:</strong> Lower latency, lightweight setup, compatible with Native CephFS and simple NFS.
+                    <br><strong>Cons:</strong> Tenants share the same storage IP; network isolation must be handled externally.
+                  </div>
+                </div>
+              </div>
+
+              <h3>Select Manila Storage Backends (Select one or more)</h3>
+              <div class="backend-selector">
+                <div class="backend-card selected" data-manila-backend="cephfs_native">
+                  <div class="backend-title">
+                    <span>CephFS Native</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Direct Ceph filesystem mount inside VM. Extremely fast, requires tenant access to Ceph OSD network directly.</div>
+                </div>
+
+                <div class="backend-card" data-manila-backend="cephfs_ganesha">
+                  <div class="backend-title">
+                    <span>CephFS via NFS-Ganesha</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">CephFS mounted via NFS-Ganesha gateways. Safer, hides Ceph network behind an NFS proxy layer.</div>
+                </div>
+
+                <div class="backend-card" data-manila-backend="netapp">
+                  <div class="backend-title">
+                    <span>NetApp ONTAP NAS</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Provisions NFS/CIFS shares on dynamic SVMs (DHSS=True) or a static SVM (DHSS=False) over standard network interfaces.</div>
+                </div>
+              </div>
+
+              <h3>Manila Share Replication</h3>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer;">
+                  <input type="checkbox" id="enableManilaReplication" style="margin: 0; width: auto;">
+                  <span style="font-weight: 600;">Enable Manila Share Replication (SnapMirror / DR mirroring)</span>
+                </label>
+              </div>
+
+              <!-- Dynamic warning/info about DHSS & Backend compatibility -->
+              <div class="ui-warning" id="manila-compat-warning" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span id="manila-compat-warning-text">Compat Warning text.</span>
+              </div>
+
+              <!-- Interactive Shared File Systems Diagram -->
+              <div class="diagram-container">
+                <span class="diagram-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Shared System Network Partition
+                </span>
+                
+                <div class="flow-diagram">
+                  <div class="flow-node active" id="node-manila-tenant">
+                    <div class="flow-node-title">Tenant Network</div>
+                    <div class="flow-node-detail" id="lbl-manila-net-type">Flat Static Net</div>
+                  </div>
+                  <div class="flow-node active" id="node-manila-server">
+                    <div class="flow-node-title" id="lbl-manila-gw-title">Manila MDS Mount</div>
+                    <div class="flow-node-detail" id="lbl-manila-gw-desc">Native Client</div>
+                  </div>
+                  <div class="flow-node active" id="node-manila-storage">
+                    <div class="flow-node-title" id="lbl-manila-storage-title">CephFS Array</div>
+                    <div class="flow-node-detail" id="lbl-manila-storage-proto">CEPHFS Protocol</div>
+                  </div>
+
+                  <svg class="flow-connections" viewBox="0 0 600 100">
+                    <path class="flow-path active" id="path-manila-1" d="M 150 50 L 250 50" />
+                    <path class="flow-path active" id="path-manila-2" d="M 350 50 L 450 50" />
+                  </svg>
+                </div>
+                <div class="ui-info-block" id="manila-diagram-desc" style="width: 100%; margin: 0; font-size: 0.85rem;">
+                  <strong>Data Access:</strong> Under DHSS=False, the VM mounts the storage share directly over the shared Storage Frontend network. Isolation must be managed with Ceph auth keys (cephx) or exporting parameters.
+                </div>
+              </div>
+            </div>
+
+            <!-- Sizing summary panel -->
+            <div class="sizing-summary" id="summary-step-4">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                Manila Stats
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Usable Share Cap</span>
+                  <span class="value" id="calc-manila-cap">50 TB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">DHSS Mode</span>
+                  <span class="value" id="calc-manila-dhss">DHSS = False</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Active Backend</span>
+                  <span class="value" id="calc-manila-backend">CephFS Native</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Ports & Protocols</span>
+                  <span class="value" id="calc-manila-ports">6789, CephFS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 5: CEPH INTEGRATION & SIZING -->
+      <section class="step-panel" id="step-panel-5">
+        <div class="card">
+          <div class="step-header">
+            <h2>Ceph Cluster Sizing & PG Allocation</h2>
+            <p>Design a colocated or dedicated Ceph storage node layout, select OSD parameters, and auto-calculate Placement Groups (PGs).</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section">
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="osdSizeTb">Individual Disk Size (TB)</label>
+                  <input type="number" id="osdSizeTb" value="8" min="1" max="22">
+                </div>
+                <div class="form-group">
+                  <label for="osdPerNode">Disks (OSDs) per Host Node</label>
+                  <input type="number" id="osdPerNode" value="12" min="4" max="36">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="osdMedia">OSD Media Type</label>
+                  <select id="osdMedia">
+                    <option value="hdd">Rotational HDD (with NVMe DB/WAL partitions)</option>
+                    <option value="ssd" selected>SATA/SAS Enterprise SSDs</option>
+                    <option value="nvme">High-Performance NVMe (Pure flash cluster)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="replicaFactor">Ceph Pool Replication Factor</label>
+                  <select id="replicaFactor">
+                    <option value="2">2x Replication (Testing only, Not CSP Grade)</option>
+                    <option value="3" selected>3x Replication (Recommended for CSP)</option>
+                    <option value="4">4x Replication (Ultra-Secure/Government)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="glanceCapacityTb">Glance Image Pool Size (TB)</label>
+                  <input type="number" id="glanceCapacityTb" value="5" min="1">
+                </div>
+                <div class="form-group">
+                  <label for="utilizationLimit">Ceph Safety Limit (Near-Full Threshold)</label>
+                  <select id="utilizationLimit">
+                    <option value="0.70">70% (Very Conservative)</option>
+                    <option value="0.75" selected>75% (Recommended Standard)</option>
+                    <option value="0.80">80% (Absolute Maximum)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="growthBuffer">Storage Growth Buffer Ratio</label>
+                <select id="growthBuffer">
+                  <option value="1.0">1.0x (No Growth Buffer)</option>
+                  <option value="1.2" selected>1.2x (20% Headroom for scaling)</option>
+                  <option value="1.5">1.5x (50% Large Growth Headroom)</option>
+                </select>
+              </div>
+
+              <h3>Glance Image Customization</h3>
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="glanceBackend">
+                  Glance Image Store Backend
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">i</span>
+                    <span class="tooltip-text">
+                      <strong>Glance Storage Backend</strong>
+                      Specifies the underlying storage layer for storing virtual machine image templates.
+                      <br><em>Impact:</em> Sets <code>default_store</code> in <code>glance-api.conf</code>. Ceph RBD (<code>rbd</code>) is direct and fast; StorageGrid (<code>s3</code>) offloads space to external S3 object stores.
+                    </span>
+                  </span>
+                </label>
+                <select id="glanceBackend">
+                  <option value="rbd" selected>Ceph RBD (Standard OpenStack direct block-device store)</option>
+                  <option value="s3">NetApp StorageGrid S3 (External S3 object registry)</option>
+                  <option value="file">Local Filesystem (Stored locally on Controller host partitions)</option>
+                </select>
+              </div>
+
+              <div class="ui-info-block" id="ceph-calculation-details">
+                <strong>PG Auto-Sizing Mechanism:</strong> PGs must be sizing-compatible with BlueStore resource allocation. A target of ~100 PGs per OSD is normal. This sizing tool dynamically allocates PGs based on raw OSD counts and next power of 2 targets.
+              </div>
+            </div>
+
+            <!-- Ceph sizing summary -->
+            <div class="sizing-summary" id="summary-step-5">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                Ceph Sizing Results
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Total Usable Storage</span>
+                  <span class="value" id="calc-ceph-usable">205 TB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Raw Cap Needed (incl Replicas)</span>
+                  <span class="value" id="calc-ceph-raw">820 TB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Minimum OSD Disks</span>
+                  <span class="value" id="calc-ceph-osds">103 OSDs</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Dedicated Storage Nodes</span>
+                  <span class="value summary-badge" id="calc-ceph-nodes">9 Nodes</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Target PGs (Volumes Pool)</span>
+                  <span class="value" id="calc-ceph-pool-pgs">1024</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 6: SECURITY, SUBNETS & OBJECT STORAGE -->
+      <section class="step-panel" id="step-panel-6">
+        <div class="card">
+          <div class="step-header">
+            <h2>Security, Subnets & Object Storage</h2>
+            <p>Enforce network subnets IP configurations, secure syslog shipping, and S3-based StorageGrid object storage endpoints.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-section" style="gap: 1.2rem;">
+              
+              <!-- Network Subnet Inputs -->
+              <h3>Network Subnets Customization</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="mgmtSubnet">Management Network Subnet (VLAN 10)</label>
+                  <input type="text" id="mgmtSubnet" value="10.10.10.0/24">
+                </div>
+                <div class="form-group">
+                  <label for="apiSubnet">Internal API Network Subnet (VLAN 20)</label>
+                  <input type="text" id="apiSubnet" value="10.10.20.0/24">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="storageFrontSubnet">Storage Frontend Subnet (VLAN 30)</label>
+                  <input type="text" id="storageFrontSubnet" value="10.10.30.0/24">
+                </div>
+                <div class="form-group">
+                  <label for="storageBackSubnet">Storage Backend Replication Subnet (VLAN 40)</label>
+                  <input type="text" id="storageBackSubnet" value="10.10.40.0/24">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="tenantSubnet">Tenant Tunnel Overlay Subnet (VLAN 50)</label>
+                  <input type="text" id="tenantSubnet" value="10.10.50.0/24">
+                </div>
+                <div class="form-group">
+                  <label for="extSubnet">External Public API Subnet (VLAN 100)</label>
+                  <input type="text" id="extSubnet" value="10.10.100.0/24">
+                </div>
+              </div>
+
+              <!-- IP Suffix Ranges -->
+              <h3>IP Allocation Bounds (Suffix Pools)</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="mgmtCtrlStart">Control VIP/Nodes Suffix Start</label>
+                  <input type="number" id="mgmtCtrlStart" value="11" min="1" max="254">
+                </div>
+                <div class="form-group">
+                  <label for="mgmtCtrlEnd">Control VIP/Nodes Suffix End</label>
+                  <input type="number" id="mgmtCtrlEnd" value="20" min="1" max="254">
+                </div>
+              </div>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="mgmtCompStart">Compute Nodes Suffix Start</label>
+                  <input type="number" id="mgmtCompStart" value="101" min="1" max="254">
+                </div>
+                <div class="form-group">
+                  <label for="mgmtCompEnd">Compute Nodes Suffix End</label>
+                  <input type="number" id="mgmtCompEnd" value="200" min="1" max="254">
+                </div>
+              </div>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="mgmtCephStart">Ceph Nodes Suffix Start</label>
+                  <input type="number" id="mgmtCephStart" value="201" min="1" max="254">
+                </div>
+                <div class="form-group">
+                  <label for="mgmtCephEnd">Ceph Nodes Suffix End</label>
+                  <input type="number" id="mgmtCephEnd" value="250" min="1" max="254">
+                </div>
+              </div>
+
+              <!-- SIEM syslog options -->
+              <h3>SIEM Log Shipping</h3>
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="siemIp">SIEM / Rsyslog Target IP</label>
+                  <input type="text" id="siemIp" value="10.10.99.100">
+                </div>
+                <div class="form-group">
+                  <label for="siemPort">Syslog Port</label>
+                  <input type="number" id="siemPort" value="514" min="1" max="65535">
+                </div>
+              </div>
+
+              <div class="form-group-row">
+                <div class="form-group">
+                  <label for="linkSpeedGbps">Interface Network Interface Link Speed</label>
+                  <select id="linkSpeedGbps">
+                    <option value="10" selected>10 Gbps LACP (Active-Active)</option>
+                    <option value="25">25 Gbps LACP (High Performance)</option>
+                    <option value="100">100 Gbps LACP (Hyperscale Cloud)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Additional network bonding</label>
+                  <div class="ui-info-block" style="margin: 0; padding: 0.5rem 0.8rem; font-size: 0.8rem;">
+                    LACP mode 4 active-active is standard.
+                  </div>
+                </div>
+              </div>
+
+              <!-- StorageGrid S3 Object store integration -->
+              <h3>Object Storage Backend (NetApp StorageGrid)</h3>
+              <div class="backend-selector" style="grid-template-columns: 1fr;">
+                <div class="backend-card" id="card-enable-storagegrid" style="padding: 1rem; cursor: default; pointer-events: none;">
+                  <div class="backend-title">
+                    <span>NetApp StorageGrid S3 Integration Status</span>
+                    <span class="backend-dot" style="background-color: var(--openstack-grey);"></span>
+                  </div>
+                  <div class="backend-desc" id="storagegrid-status-desc">Inactive. (Automatically activated when selecting NetApp StorageGrid S3 as Glance store, Cinder backup target, or Kubernetes Velero target).</div>
+                </div>
+              </div>
+
+              <div id="storagegrid-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="storagegridIp">StorageGrid S3 Endpoint IP</label>
+                    <input type="text" id="storagegridIp" value="10.10.30.70">
+                  </div>
+                  <div class="form-group">
+                    <label for="storagegridPort">S3 HTTPS Gateway Port</label>
+                    <input type="number" id="storagegridPort" value="10443">
+                  </div>
+                </div>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="storagegridAccessKey">S3 Access Key ID</label>
+                    <input type="text" id="storagegridAccessKey" value="SG_ACCESS_KEY_ID">
+                  </div>
+                  <div class="form-group">
+                    <label for="storagegridSecretKey">S3 Secret Access Key</label>
+                    <input type="text" id="storagegridSecretKey" value="SG_SECRET_ACCESS_KEY">
+                  </div>
+                </div>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="storagegridBucket">Glance S3 Bucket Name</label>
+                    <input type="text" id="storagegridBucket" value="glance-images">
+                  </div>
+                  <div class="form-group">
+                    <label for="storagegridIlm">ILM Replication Policy Name</label>
+                    <input type="text" id="storagegridIlm" value="2_Copies_Dual_Site">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="storagegridCapacityTb">Target StorageGrid S3 Capacity (TB)</label>
+                  <input type="number" id="storagegridCapacityTb" value="50" min="5">
+                </div>
+              </div>
+
+              <h3>Neutron Networking Tunables</h3>
+              <div class="form-group-row" style="margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label for="neutronDriver">
+                    Neutron Backend Driver
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Neutron Backend Driver</strong>
+                        Specifies the SDN architecture and driver for managing virtual ports and routing.
+                        <br><em>Impact:</em> Configures <code>mechanism_drivers</code> under <code>[ml2]</code> in <code>neutron.conf</code>. 'ovn' replaces central neutron-agents with distributed databases.
+                      </span>
+                    </span>
+                  </label>
+                  <select id="neutronDriver">
+                    <option value="ovn" selected>OVN (Open Virtual Network - Modern Standard)</option>
+                    <option value="ml2ovs">ML2/OVS (Open vSwitch - Legacy Classic)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="tenantTunnelProto">
+                    Tenant Overlay Tunnel Protocol
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Overlay Tunnel Protocol</strong>
+                        Selects the packet encapsulation type for routing tenant networks over physical switches.
+                        <br><em>Impact:</em> Sets <code>tenant_network_types</code> in <code>neutron.conf</code>. 'GENEVE' is optimized for OVN metadata distribution.
+                      </span>
+                    </span>
+                  </label>
+                  <select id="tenantTunnelProto">
+                    <option value="geneve" selected>GENEVE (Recommended for OVN)</option>
+                    <option value="vxlan">VXLAN (Standard Overlay)</option>
+                    <option value="vlan">VLAN (Flat/Provider Networks)</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Sizing statistics panel -->
+            <div class="sizing-summary" id="summary-step-6">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Security Stats
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">SIEM Transport</span>
+                  <span class="value">syslog-rfc5424/TCP</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Keystone Tokens</span>
+                  <span class="value">Fernet Encrypted</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">API SSL/TLS</span>
+                  <span class="value">TLS 1.3 / HSTS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 7: FINAL OUTPUTS (HLD, LLD, CONFIGS, PLAYBOOKS) -->
+      <section class="step-panel" id="step-panel-7">
+        <div class="card" style="padding: 1.5rem;">
+          <div class="step-header" style="margin-bottom: 1.5rem;">
+            <h2>Architecture HLD, LLD & Deployment Packages</h2>
+            <p>Review the generated High-Level Design, Low-Level Design, Operational Playbooks, and OpenStack system configuration files.</p>
+          </div>
+          
+          <div class="results-layout">
+            <!-- Left Tabs navigation -->
+            <div class="results-tabs">
+              <button class="tab-btn active" data-tab="proposal_design">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Proposal & Design Document
+              </button>
+              <button class="tab-btn" data-tab="hld">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                High-Level Design (HLD)
+              </button>
+              <button class="tab-btn" data-tab="lld">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Low-Level Design (LLD)
+              </button>
+              <button class="tab-btn" data-tab="ansible" id="tab-btn-ansible">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                Kolla-Ansible Configs
+              </button>
+              <button class="tab-btn" data-tab="juju_bundle" id="tab-btn-juju" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                Juju Bundle
+              </button>
+              <button class="tab-btn" data-tab="rhosp_templates" id="tab-btn-rhosp" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                RHOSP Templates
+              </button>
+              <button class="tab-btn" data-tab="kubernetes_csi" id="tab-btn-k8s-csi" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                cinder-csi.yaml
+              </button>
+              <button class="tab-btn" data-tab="cloud_config" id="tab-btn-cloud-config" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                cloud-config
+              </button>
+              <button class="tab-btn" data-tab="k8s_velero" id="tab-btn-k8s-velero" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                velero-backup.yaml
+              </button>
+              <button class="tab-btn" data-tab="deployment_steps">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Deployment Guide
+              </button>
+              <button class="tab-btn" data-tab="nova_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                nova.conf
+              </button>
+              <button class="tab-btn" data-tab="neutron_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                neutron.conf
+              </button>
+              <button class="tab-btn" data-tab="keystone_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                keystone.conf
+              </button>
+              <button class="tab-btn" data-tab="glance_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                glance.conf
+              </button>
+              <button class="tab-btn" data-tab="cinder_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                cinder.conf
+              </button>
+              <button class="tab-btn" data-tab="manila_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                manila.conf
+              </button>
+              <button class="tab-btn" data-tab="ceph_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                ceph.conf
+              </button>
+              <button class="tab-btn" data-tab="siem_conf">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                SIEM / Rsyslog Config
+              </button>
+            </div>
+
+            <!-- Right display area -->
+            <div class="results-display">
+              <div class="display-header">
+                <span class="display-title" id="display-filename">high_level_design.md</span>
+                <div class="action-bar">
+                  <button class="btn-icon" id="btn-copy">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button class="btn-icon" id="btn-download">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                  </button>
+                </div>
+              </div>
+              
+              <div class="display-body">
+                <div id="display-content" class="markdown-rendered">
+                  <!-- Generated text will go here dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+    </main>
+
+    <!-- Live Topology Panel -->
+    <aside class="topology-panel">
+      <!-- Column 1: Header & Legend -->
+      <div class="topology-sidebar-col">
+        <div class="topology-header">
+          <h3>Live Logical Topology</h3>
+          <p>Real-time physical and logical resource mapping</p>
+        </div>
+        <div class="topology-legend">
+          <div class="legend-item"><span class="legend-dot ctrl"></span>Control Path</div>
+          <div class="legend-item"><span class="legend-dot data"></span>Data Path (Active)</div>
+          <div class="legend-item"><span class="legend-dot tunnel"></span>Logical Network Tunnel</div>
+        </div>
+      </div>
+
+      <!-- Column 2: SVG diagram -->
+      <div id="topology-diagram-wrapper" class="topology-diagram-wrapper">
+        <!-- SVG content is dynamically rendered here -->
+      </div>
+
+      <!-- Column 3: Live warnings panel -->
+      <div id="topology-warnings-panel" class="topology-warnings-panel compliant">
+        <div class="warnings-header">
+          <span id="warnings-status-icon">✓</span>
+          <h4 id="warnings-title">Configuration Compliant</h4>
+        </div>
+        <div class="warnings-content">
+          <ul id="live-validation-list">
+            <li class="compliant-msg">Sizing baseline satisfies target security controls and hypervisor limits.</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+    </div>
+  </div>
+
+  <!-- Dynamic Notification Area -->
+  <div id="toast-container" style="display:none;">
+    <div class="toast">
+      <span class="toast-icon">✓</span>
+      <span class="toast-message" id="toast-text">Sizing recalculated successfully!</span>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
