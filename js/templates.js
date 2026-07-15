@@ -710,8 +710,95 @@ export function generateRhospTemplates(inputs) {
     cpuOvercommit = 3,
     ramOvercommit = 1,
     apiSubnet = '10.10.20.0/24',
-    mgmtSubnet = '10.10.10.0/24'
+    mgmtSubnet = '10.10.10.0/24',
+    openstackVersion = '2024.1'
   } = inputs;
+
+  if (openstackVersion === '18.0') {
+    return `# Red Hat OpenStack Services on OpenShift (RHOSO) 18.0 Custom Resource
+# File: openstack-control-plane.yaml
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack-control-plane
+  namespace: openstack
+spec:
+  secret: osp-secret
+  storageClass: ${inputs.cinderBackends && inputs.cinderBackends.includes('ceph') ? 'ocs-storagecluster-ceph-rbd' : 'local-storage'}
+  
+  keystone:
+    template:
+      databaseInstance: openstack
+      secret: osp-secret
+
+  placement:
+    template:
+      databaseInstance: openstack
+      secret: osp-secret
+
+  glance:
+    template:
+      databaseInstance: openstack
+      customServiceConfig: |
+        [DEFAULT]
+        enabled_backends = default_backend:rbd
+        [default_backend]
+        rbd_store_pool = images
+        store_description = Ceph RBD image store
+      storageClass: local-storage
+      storageRequest: ${inputs.glanceCapacityTb || 5}Gi
+
+  cinder:
+    template:
+      databaseInstance: openstack
+      secret: osp-secret
+      cinderAPI:
+        replicas: ${inputs.haBuffer || 2}
+      cinderScheduler:
+        replicas: ${inputs.haBuffer || 2}
+      cinderBackup:
+        replicas: ${inputs.enableCinderBackup === 'true' || inputs.enableCinderBackup === true ? (inputs.haBuffer || 2) : 0}
+      cinderVolumes:
+        ceph-backend:
+          customServiceConfig: |
+            [ceph-backend]
+            volume_backend_name = ceph
+            volume_driver = cinder.volume.drivers.rbd.RBDDriver
+            rbd_pool = volumes
+            rbd_user = openstack
+            rbd_secret_uuid = $secret_uuid
+
+  nova:
+    template:
+      secret: osp-secret
+      databaseInstance: openstack
+      metadataServiceTemplate:
+        replicas: ${inputs.haBuffer || 2}
+      novaAPI:
+        replicas: ${inputs.haBuffer || 2}
+      novaConductor:
+        replicas: ${inputs.haBuffer || 2}
+      novaScheduler:
+        replicas: ${inputs.haBuffer || 2}
+      # Allocation ratios configuration
+      customServiceConfig: |
+        [DEFAULT]
+        cpu_allocation_ratio = ${cpuOvercommit}.0
+        ram_allocation_ratio = ${ramOvercommit}.0
+
+  neutron:
+    template:
+      databaseInstance: openstack
+      secret: osp-secret
+      neutronAPI:
+        replicas: ${inputs.haBuffer || 2}
+
+  rabbitmq:
+    templates:
+      rabbitmq:
+        replicas: ${inputs.haBuffer || 2}
+`;
+  }
 
   const ctrlStart = parseInt(inputs.mgmtCtrlStart) || 11;
 
@@ -1515,14 +1602,60 @@ Perform these steps on your deployment host (Juju client machine):
    openstack service list
    \`\`\``;
   } else if (openstackDistro === 'rhosp') {
-    distroSteps = `## 2. Red Hat OpenStack Platform (RHOSP) Director Platform Initialization
+    if (openstackVersion === '18.0') {
+      distroSteps = `## 2. Red Hat OpenStack Services on OpenShift (RHOSO) 18.0 Operator Deployment
+Perform these steps on your OpenShift Container Platform (RHOCP) bastion or control node:
+1. **Access the cluster and create namespace:**
+   \`\`\`bash
+   oc login -u admin -p password https://api.openshift.example.com:6443
+   oc new-project openstack
+   \`\`\`
+2. **Install RHOSO Operator:**
+   Install the **Red Hat OpenStack Services on OpenShift** operator via the OpenShift OperatorHub or using Subscription manifests:
+   \`\`\`bash
+   cat <<EOF | oc apply -f -
+   apiVersion: operators.coreos.com/v1alpha1
+   kind: Subscription
+   metadata:
+     name: openstack-operator
+     namespace: openstack
+   spec:
+     channel: stable-18.0
+     installPlanApproval: Automatic
+     name: openstack-operator
+     source: redhat-operators
+     sourceNamespace: openshift-marketplace
+   EOF
+   \`\`\`
+3. **Deploy prerequisites & credentials secret:**
+   Create the \`osp-secret\` custom secret holding database passwords, rabbitmq users, and service admin passwords:
+   \`\`\`bash
+   oc create secret generic osp-secret \\
+     --from-literal=AdminPassword=admin_secure_pass \\
+     --from-literal=DatabasePassword=db_secure_pass \\
+     --from-literal=RabbitMqPassword=mq_secure_pass
+   \`\`\`
+4. **Deploy the OpenStack Control Plane:**
+   Copy the generated \`openstack-control-plane.yaml\` from the tab above and deploy it:
+   \`\`\`bash
+   oc apply -f openstack-control-plane.yaml
+   \`\`\`
+5. **Monitor the deployment status:**
+   Verify that all OpenStack control plane components initialize and transitions to 'Ready' state:
+   \`\`\`bash
+   oc get openstackcontrolplane -w
+   # Confirm that all service pods in the openstack namespace are Running:
+   oc get pods -n openstack
+   \`\`\``;
+    } else {
+      distroSteps = `## 2. Red Hat OpenStack Platform (RHOSP) ${openstackVersion} Director Platform Initialization
 Perform these steps on your Undercloud host (Director client node):
 1. **Install RHOSP TripleO packages:**
    \`\`\`bash
    # Enable Red Hat repositories
    subscription-manager register --username=redhat_user --password=redhat_pass
    subscription-manager release --set=8.8
-   subscription-manager repos --enable=openstack-17.1-for-rhel-8-x86_64-rpms
+   subscription-manager repos --enable=openstack-${openstackVersion}-for-rhel-8-x86_64-rpms
    dnf install -y python3-tripleoclient
    \`\`\`
 2. **Configure Undercloud environment:**
@@ -1545,6 +1678,7 @@ Perform these steps on your Undercloud host (Director client node):
    chmod +x overcloud_deploy.sh
    ./overcloud_deploy.sh
    \`\`\``;
+    }
   }
 
   return `# Step-by-Step Production Deployment & Hardening Guide

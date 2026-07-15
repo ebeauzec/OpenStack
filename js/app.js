@@ -265,26 +265,32 @@ function updateVersionOptions() {
 
   const versionsMap = {
     kolla: [
-      { value: '2025.1', label: '2025.1 (Epoxy - Dev)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
+      { value: '2025.2', label: '2025.2 (Flamingo)' },
+      { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
       { value: '2024.2', label: '2024.2 (Dalmatian)' },
-      { value: '2024.1', label: '2024.1 (Caracal)' },
+      { value: '2024.1', label: '2024.1 (Caracal - SLURP)' },
       { value: '2023.2', label: '2023.2 (Bobcat)' },
       { value: '2023.1', label: '2023.1 (Antelope)' },
       { value: 'zed', label: 'Zed' },
       { value: 'yoga', label: 'Yoga' }
     ],
     juju: [
-      { value: '2024.1', label: '2024.1 (Caracal)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
+      { value: '2025.2', label: '2025.2 (Flamingo)' },
+      { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
+      { value: '2024.2', label: '2024.2 (Dalmatian)' },
+      { value: '2024.1', label: '2024.1 (Caracal - SLURP)' },
       { value: '2023.2', label: '2023.2 (Bobcat)' },
       { value: '2023.1', label: '2023.1 (Antelope)' },
       { value: 'zed', label: 'Zed' },
       { value: 'yoga', label: 'Yoga' }
     ],
     rhosp: [
-      { value: '18.0', label: 'RHOSP 18.0 (Antelope/Bobcat based)' },
-      { value: '17.1', label: 'RHOSP 17.1 (Wallaby based)' },
-      { value: '16.2', label: 'RHOSP 16.2 (Train based)' },
-      { value: '13.0', label: 'RHOSP 13.0 (Queens - Legacy LTS)' }
+      { value: '18.0', label: 'RHOSO 18.0 (OpenStack Services on OpenShift - Latest)' },
+      { value: '17.1', label: 'RHOSP 17.1 (Classic Director-based)' },
+      { value: '16.2', label: 'RHOSP 16.2 (Classic)' },
+      { value: '13.0', label: 'RHOSP 13.0 (Legacy LTS)' }
     ]
   };
 
