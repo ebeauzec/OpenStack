@@ -22,6 +22,16 @@ An interactive web-based wizard designed for system architects and cloud enginee
 
 ---
 
+## 📖 Detailed Documentation
+
+To explore specific architecture and calculation topics in detail, see the structured guides in the `docs/` directory:
+* 🧮 **[Sizing & Capacity Engine](file:///g:/My%20Drive/AntiGravity/Openstack/docs/sizing_engine.md)**: Deep dive into virtual resource demands, overcommit node capacity equations, Ceph OSD count math, and network bandwidth calculations.
+* 🏗️ **[Software Architecture & SVG Pipeline](file:///g:/My%20Drive/AntiGravity/Openstack/docs/architecture.md)**: Details on the glassmorphic design system (CSS), state synchronization flow (JS), and dynamic vector rendering of logical network tunnels.
+* 🛡️ **[Sovereign Compliance & Validation Engine](file:///g:/My%20Drive/AntiGravity/Openstack/docs/compliance.md)**: In-depth criteria for NCA CSCC (Saudi Arabia) and DESC CSP (Dubai) checklists, and real-time overcommit warning bounds.
+* 🚀 **[Production Deployment & Setup Guides](file:///g:/My%20Drive/AntiGravity/Openstack/docs/deployment.md)**: Step-by-step installation guidelines for Kolla-Ansible, Canonical Charmed OpenStack, and Red Hat OpenStack Services on OpenShift (RHOSO) 18.0.
+
+---
+
 ## 📁 Project Architecture
 
 * **[index.html](file:///g:/My%20Drive/AntiGravity/Openstack/index.html)**: Modular, modern, responsive interface styled with glassmorphism and an integrated SVG dashboard.
