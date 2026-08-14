@@ -271,6 +271,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Grid/flex items default to min-width:auto, which lets a <select>'s longest
+     option text force this wider than its track and overflow the page. */
+  min-width: 0;
 }
 
 .form-group-row {
@@ -306,6 +309,9 @@ select {
   font-size: 0.95rem;
   outline: none;
   transition: all 0.3s ease;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 input[type="text"]:focus,
