@@ -6891,8 +6891,12 @@ function setupEventListeners() {
   elements.stepperItems.forEach(item => {
     item.addEventListener('click', () => {
       const targetStep = parseInt(item.dataset.step);
-      if (targetStep < state.currentStep || validateStep(state.currentStep)) {
+      const movingForwardPastManilaGate = targetStep > state.currentStep && targetStep >= 4;
+      if (targetStep < state.currentStep || (validateStep(state.currentStep) && (!movingForwardPastManilaGate || validateManilaCompat()))) {
         goToStep(targetStep);
+      } else if (movingForwardPastManilaGate) {
+        goToStep(4);
+        showToast('Resolve the Manila DHSS/backend compatibility warning below before continuing.');
       }
     });
   });
@@ -7409,11 +7413,6 @@ function runCalculations() {
     enableStoragegrid: state.inputs.enableStoragegrid
   });
 
-  // Keep the Step 4 compat gate (banner + Next button) in sync with state even when
-  // step 4 was never visited sequentially (e.g. jumping via the stepper, or an industry
-  // preset changing manilaDhss) — validateStep() only re-checks the step being left.
-  validateManilaCompat();
-
   runLiveValidation();
 }
 
@@ -7734,7 +7733,18 @@ function goToStep(stepNumber) {
  
   // Disable/Enable Back and Next
   elements.btnPrev.disabled = stepNumber === 1;
-  
+
+  // The Manila DHSS/backend compat gate only applies (and is only visible) on step 4 --
+  // resync it here so Next is never left stuck disabled on an unrelated step (e.g. after
+  // navigating away from step 4 without fixing an incompatibility).
+  if (stepNumber === 4) {
+    validateManilaCompat();
+  } else {
+    const manilaWarning = document.getElementById('manila-compat-warning');
+    if (manilaWarning) manilaWarning.style.display = 'none';
+    elements.btnNext.disabled = false;
+  }
+
   if (stepNumber === 7) {
     elements.btnNext.innerHTML = `Verify Design <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
     renderActiveTab();
