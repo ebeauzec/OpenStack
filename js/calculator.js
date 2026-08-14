@@ -71,8 +71,8 @@ export function calculateCompute(inputs) {
   // Storage sizing if using local disks on compute nodes
   const nodesForStorage = nodeDisk > 0 ? Math.ceil(totalLocalDiskNeeded / nodeDisk) : 0;
 
-  // Base compute nodes is the max of CPU or RAM constraints
-  const rawComputeNodes = Math.max(nodesForCpu, nodesForRam);
+  // Base compute nodes is the max of CPU, RAM, or local-disk (ephemeral) constraints
+  const rawComputeNodes = Math.max(nodesForCpu, nodesForRam, nodesForStorage);
 
   // Total compute nodes including HA buffer
   const finalComputeNodes = rawComputeNodes + safeHaBuffer;
@@ -91,25 +91,25 @@ export function calculateCompute(inputs) {
   
   if (compliance.includes('nca_cscc')) {
     if (cpuOvercommit > 2) {
-      complianceWarnings.push("NCA CSCC (Saudi Arabia) Compliance Warning: Section CCC-1.1.2 recommends capping CPU overcommit at 2:1 for critical environments to maintain performance guarantees.");
+      complianceWarnings.push("NCA CCC (Saudi Arabia, Cloud Cybersecurity Controls CCC-2:2024) Compliance Warning: resource-governance controls recommend capping CPU overcommit at 2:1 for critical environments to maintain performance guarantees.");
     }
     if (ramOvercommit > 1) {
-      complianceWarnings.push("NCA CSCC (Saudi Arabia) Compliance Warning: Section CCC-1.1.2 dictates 1:1 RAM allocation (no RAM overcommit) for cloud database nodes.");
+      complianceWarnings.push("NCA CCC (Saudi Arabia, Cloud Cybersecurity Controls CCC-2:2024) Compliance Warning: resource-governance controls dictate 1:1 RAM allocation (no RAM overcommit) for cloud database nodes.");
     }
   }
 
   if (compliance.includes('desc_csp')) {
     if (cpuOvercommit > 3) {
-      complianceWarnings.push("DESC CSP (Dubai) Compliance Warning: Section 5.1.3 mandates CPU overcommit should not exceed 3:1 to protect multi-tenant SLAs.");
+      complianceWarnings.push("DESC CSP (Dubai, Information Security Regulation v3.0) Compliance Warning: multi-tenant SLA controls recommend CPU overcommit should not exceed 3:1 to protect co-tenant performance.");
     }
     if (ramOvercommit > 1) {
-      complianceWarnings.push("DESC CSP (Dubai) Compliance Warning: Section 5.1.3 mandates 1:1 RAM allocation to prevent memory pressure swap events on hypervisors.");
+      complianceWarnings.push("DESC CSP (Dubai, Information Security Regulation v3.0) Compliance Warning: resource controls recommend 1:1 RAM allocation to prevent memory pressure swap events on hypervisors.");
     }
   }
 
   if (compliance.includes('nesa_ias')) {
     if (cpuOvercommit > 4) {
-      complianceWarnings.push("NESA IAS (UAE) compliance recommends limiting CPU overcommit below 4:1 to prevent denial-of-service conditions via resource starvation.");
+      complianceWarnings.push("NESA IAS (UAE IAR/IAS v2, TDRA / Cyber Security Council) compliance recommends limiting CPU overcommit below 4:1 to prevent denial-of-service conditions via resource starvation.");
     }
   }
 

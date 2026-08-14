@@ -41,43 +41,43 @@ export function getComplianceComments(inputs, service) {
 
   if (compliance.includes('nca_cscc')) {
     hasDirectives = true;
-    comments += `# [NCA CSCC - Saudi Arabia]:\n`;
+    comments += `# [NCA CCC (Cloud Cybersecurity Controls) CCC-2:2024 - Saudi Arabia]:\n`;
     if (service === 'keystone') {
-      comments += `#   - CCC-1.4: Strict password complexity and 1-hour token expiration active.\n`;
+      comments += `#   - Identity domain: Strict password complexity and 1-hour token expiration active.\n`;
     } else if (service === 'cinder' || service === 'nova') {
-      comments += `#   - CCC-3.2.1.2: Volume Encryption-at-Rest via Barbican KMS is ${inputs.enableBarbican ? 'ENABLED (Compliant)' : 'DISABLED (Non-Compliant - Action Required)'}.\n`;
-      comments += `#   - CCC-6.1 / CCC-6.2: Backup & DR replication is ${(inputs.enableCinderBackup === 'true' && inputs.enableCinderReplication) ? 'configured. Bandwidth/RTT constraints verified.' : 'NOT fully configured (Non-Compliant - Action Required).'}\n`;
+      comments += `#   - Cryptography domain: Volume Encryption-at-Rest via Barbican KMS is ${inputs.enableBarbican ? 'ENABLED (Compliant)' : 'DISABLED (Non-Compliant - Action Required)'}.\n`;
+      comments += `#   - Backup & recovery domain: Backup & DR replication is ${(inputs.enableCinderBackup === 'true' && inputs.enableCinderReplication) ? 'configured. Bandwidth/RTT constraints verified.' : 'NOT fully configured (Non-Compliant - Action Required).'}\n`;
     } else if (service === 'neutron') {
-      comments += `#   - CCC-1.2 / CCC-5.4: Log forwarding shipping all Neutron API/state events to SIEM IP ${inputs.siemIp || '10.10.99.100'}.\n`;
+      comments += `#   - Logging & monitoring domain: Log forwarding shipping all Neutron API/state events to SIEM IP ${inputs.siemIp || '10.10.99.100'}.\n`;
     } else if (service === 'ceph') {
-      comments += `#   - CCC-6.1: Ceph replication pool size set to 3 (Min replication of 3 is mandated for data durability).\n`;
+      comments += `#   - Data & information protection domain: Ceph replication pool size set to 3 (Min replication of 3 is mandated for data durability).\n`;
     }
   }
 
   if (compliance.includes('desc_csp')) {
     hasDirectives = true;
-    comments += `# [DESC CSP - Dubai]:\n`;
+    comments += `# [DESC CSP Security Standard, Information Security Regulation (ISR) v3.0 - Dubai]:\n`;
     if (service === 'keystone') {
-      comments += `#   - Section 4: Authentication rules aligned. Max token lifetime set to 3600 seconds.\n`;
+      comments += `#   - Authentication rules aligned. Max token lifetime set to 3600 seconds.\n`;
     } else if (service === 'cinder' || service === 'nova') {
-      comments += `#   - Section 5.4: Storage Encryption-at-Rest via Barbican is ${inputs.enableBarbican ? 'ENABLED (Compliant). FIPS 140-2 compliance supported.' : 'DISABLED (Non-Compliant - Action Required).'}\n`;
-      comments += `#   - Section 11.1 / 11.2: Off-site backups to StorageGrid S3 are ${inputs.enableCinderBackup === 'true' ? 'ACTIVE.' : 'NOT configured (Non-Compliant).'} DR replication is ${inputs.enableCinderReplication ? 'ACTIVE.' : 'NOT configured.'}\n`;
+      comments += `#   - Storage Encryption-at-Rest via Barbican is ${inputs.enableBarbican ? 'ENABLED (Compliant). FIPS 140-2 compliance supported.' : 'DISABLED (Non-Compliant - Action Required).'}\n`;
+      comments += `#   - Off-site backups to StorageGrid S3 are ${inputs.enableCinderBackup === 'true' ? 'ACTIVE.' : 'NOT configured (Non-Compliant).'} DR replication is ${inputs.enableCinderReplication ? 'ACTIVE.' : 'NOT configured.'}\n`;
     } else if (service === 'manila') {
-      comments += `#   - Section 5.1.3: Manila multi-tenancy isolated share servers (DHSS = ${inputs.manilaDhss === 'true' ? 'True (Compliant)' : 'False (Non-Compliant - DHSS=True required)'}).\n`;
+      comments += `#   - Tenant data isolation: Manila multi-tenancy isolated share servers (DHSS = ${inputs.manilaDhss === 'true' ? 'True (Compliant)' : 'False (Non-Compliant - DHSS=True required)'}).\n`;
     } else if (service === 'neutron') {
-      comments += `#   - Section 6 / 9.2: Neutron security groups stateful OVS driver enforced. Audit log shipping to Syslog active.\n`;
+      comments += `#   - Network security: Neutron security groups stateful OVS driver enforced. Audit log shipping to Syslog active.\n`;
     }
   }
 
   if (compliance.includes('nesa_ias')) {
     hasDirectives = true;
-    comments += `# [NESA IAS - UAE]:\n`;
+    comments += `# [NESA IAS, now UAE IAR/IAS v2 - TDRA / Cyber Security Council]:\n`;
     comments += `#   - Access Control & Cryptography: Validated secure TLS endpoints, ${inputs.enableBarbican ? 'Barbican encryption integration ACTIVE,' : 'Barbican encryption integration NOT configured (Action Required),'} and SIEM event auditing.\n`;
   }
 
   if (compliance.includes('pci-dss')) {
     hasDirectives = true;
-    comments += `# [PCI-DSS v4.0]:\n`;
+    comments += `# [PCI-DSS v4.0.1]:\n`;
     comments += `#   - Requirement 3: Cardholder data at rest must be encrypted. Barbican encryption is ${inputs.enableBarbican ? 'ENABLED (Compliant)' : 'DISABLED (Non-Compliant)'}.\n`;
     comments += `#   - Requirement 8: MFA/Keystone password complexity limits and token duration restricted.\n`;
     comments += `#   - Requirement 10: Event logs sent to central SIEM host ${inputs.siemIp || '10.10.99.100'}.\n`;
@@ -157,6 +157,18 @@ function generateIpPlanningTable(inputs, computeResult, cephResult) {
   if (cinderBackends.includes('emc')) {
     md += `| \`powerflex-gateway\` | Dell EMC Gateway | - | - | \`${inputs.emcIp || getIpAddress(storageFrontSubnet, 251)}\` | - | - | - |\n`;
   }
+  if (cinderBackends.includes('pure')) {
+    md += `| \`pure-flasharray\` | Pure Storage FlashArray | - | - | \`${inputs.pureIp || getIpAddress(storageFrontSubnet, 253)}\` | - | - | - |\n`;
+  }
+  if (cinderBackends.includes('hpe')) {
+    md += `| \`hpe-san-array\` | HPE SAN Array | - | - | \`${inputs.hpeIp || getIpAddress(storageFrontSubnet, 254)}\` | - | - | - |\n`;
+  }
+  if (cinderBackends.includes('dellps')) {
+    md += `| \`dell-powerstore-max\` | Dell PowerStore/PowerMax | - | - | \`${inputs.dellpsIp || getIpAddress(storageFrontSubnet, 255)}\` | - | - | - |\n`;
+  }
+  if (cinderBackends.includes('vast') || manilaBackends.includes('vast')) {
+    md += `| \`vast-cluster\` | VAST Data Cluster | - | - | \`${inputs.vastIp || getIpAddress(storageFrontSubnet, 249)}\` | - | - | - |\n`;
+  }
   if (enableStoragegrid) {
     md += `| \`storagegrid-s3\` | NetApp StorageGrid | - | - | \`${inputs.storagegridIp || getIpAddress(storageFrontSubnet, 252)}\` | - | - | - |\n`;
   }
@@ -198,10 +210,10 @@ export function generateHLD(inputs, computeResult, cephResult) {
 
   const industryText = {
     general: "General Purpose Cloud Hosting Services",
-    financial: "Financial Services Hosting (Strict PCI-DSS / DESC v2 Compliance)",
-    healthcare: "Healthcare & Life Sciences Hosting (HIPAA/GDPR Data Residency)",
-    telecom: "Telecom NFV Edge Platform (NESA High-Availability Mandates)",
-    sovereign: "Sovereign Gov Cloud (Saudi NCA CSCC / DESC v2 Compliant)"
+    financial: "Financial Services Hosting (Strict PCI-DSS v4.0.1 / DESC ISR v3.0 Compliance)",
+    healthcare: "Healthcare & Life Sciences Hosting (HIPAA Security Rule / GDPR Data Residency)",
+    telecom: "Telecom NFV Edge Platform (NESA/UAE IAR-IAS v2 High-Availability Mandates)",
+    sovereign: "Sovereign Gov Cloud (Saudi NCA CCC-2:2024 / DESC ISR v3.0 Compliant)"
   };
 
   return `# High-Level Design (HLD)
@@ -275,7 +287,7 @@ ${manilaBackends.map(b => `#### Shared Backend: ${b.toUpperCase()} (DHSS = ${man
 ${getManilaDhssHldDescription(manilaDhss, b)}`).join('\n\n')}
 
 ### Business Continuity, Replication & Backup Policies
-- **Cinder Volumes Backup:** ${inputs.enableCinderBackup === 'true' ? `Enabled. Vol backups are shipped to **${inputs.cinderBackupTarget === 'storagegrid' ? 'NetApp StorageGrid S3' : 'Ceph Backup Pool'}** using multi-stream compression.` : 'Disabled. (Check compliance checklist; NCA CSCC recommends external volume backup targets).'}
+- **Cinder Volumes Backup:** ${inputs.enableCinderBackup === 'true' ? `Enabled. Vol backups are shipped to **${inputs.cinderBackupTarget === 'storagegrid' ? 'NetApp StorageGrid S3' : 'Ceph Backup Pool'}** using multi-stream compression.` : 'Disabled. (Check compliance checklist; NCA CCC recommends external volume backup targets).'}
 - **Manila Share Replication:** ${inputs.enableManilaReplication === 'true' ? `Active share mirroring configured. NetApp ONTAP handles this via SVM SnapMirror active sync; CephFS utilizes active-passive MDS mirroring daemon.` : 'Not Configured.'}
 - **Ceph RBD Mirroring:** For Ceph backends, active-passive asynchronous journaling mirrors RBD images across two geodistributed data centers over WAN interfaces.
 - **S3 Data Protection (StorageGrid):** S3 bucket objects replication rules are managed by the StorageGrid Information Lifecycle Management (ILM) engine, ensuring dual-site active replica copies.
@@ -308,6 +320,16 @@ export function generateLLD(inputs, computeResult, cephResult) {
     netappProto = 'iscsi',
     emcPool = 'pool_cinder',
     emcIp = '10.10.30.60',
+    pureIp = '10.10.30.80',
+    pureProto = 'iscsi',
+    hpeIp = '10.10.30.90',
+    hpePlatform = 'primera_alletra',
+    hpeProto = 'fc',
+    dellpsIp = '10.10.30.95',
+    dellpsPlatform = 'powerstore',
+    dellpsProto = 'iscsi',
+    vastIp = '10.10.30.110',
+    vastVippool = 'cinder-vip-pool',
     enableStoragegrid = false,
     storagegridIp = '10.10.30.70',
     storagegridPort = '10443',
@@ -354,13 +376,13 @@ Below is the compliance mapping detailing how this architecture drives complianc
 
 | Regulatory Directive | Requirement Details | Solution Implementation Measure | Compliance Driver |
 |---|---|---|---|
-| **Saudi Arabia NCA CSCC-1:2019** | Section CCC-1.1.2: Resource Allocations | Enforced CPU overcommit <= 2:1 and 1:1 RAM mapping on compute nodes. | Resource predictability & prevention of VM starvation. |
-| **Saudi Arabia NCA CSCC-1:2019** | Section CCC-1.5.1: Encryption-at-Rest | Active Ceph OSD encryption using \`dm-crypt\` and NetApp Volume Encryption (NVE). | Prevents data leakage from physical disk theft. |
-| **Dubai DESC CSP Standard v2.0** | Section 5.1.3: Tenant Data Isolation | Manila \`DHSS = True\` SVM provisioning, separating tenant network namespaces. | Multi-tenant boundary verification and traffic geofencing. |
-| **Dubai DESC CSP Standard v2.0** | Section 7.2.1: Log Preservation & Shipping | Rsyslog TLS forwarding of all Keystone auth and audit events to SIEM. | Centralized auditing and non-repudiation tracking. |
-| **UAE NESA IAS** | Zone Isolation & Security | strict VLAN separation and LACP bonding on separate physical switch fabrics. | Prevention of lateral movement in case of compromised host. |
-| **PCI-DSS v4.0** | Encryption & Token Security | Keystone Fernet tokens rotated daily; SSL/TLS 1.3 enforced on all APIs. | Protects Cardholder Data (CHD) in transit and auth credentials. |
-| **GDPR** | Data Residency | Ceph pool CRUSH rules pinned to domestic physical storage hosts only. | Compliance with sovereign borders data processing laws. |
+| **Saudi Arabia NCA CCC-2:2024** | Resource governance domain | Enforced CPU overcommit <= 2:1 and 1:1 RAM mapping on compute nodes. | Resource predictability & prevention of VM starvation. |
+| **Saudi Arabia NCA CCC-2:2024** | Cryptography domain: Encryption-at-Rest | Active Ceph OSD encryption using \`dm-crypt\` and NetApp Volume Encryption (NVE). | Prevents data leakage from physical disk theft. |
+| **Dubai DESC CSP Standard, ISR v3.0** | Tenant Data Isolation | Manila \`DHSS = True\` SVM provisioning, separating tenant network namespaces. | Multi-tenant boundary verification and traffic geofencing. |
+| **Dubai DESC CSP Standard, ISR v3.0** | Log Preservation & Shipping | Rsyslog TLS forwarding of all Keystone auth and audit events to SIEM. | Centralized auditing and non-repudiation tracking. |
+| **UAE NESA IAS (now IAR/IAS v2)** | Zone Isolation & Security | strict VLAN separation and LACP bonding on separate physical switch fabrics. | Prevention of lateral movement in case of compromised host. |
+| **PCI-DSS v4.0.1** | Requirement 4/8: Encryption & Token Security | Keystone Fernet tokens rotated daily; SSL/TLS 1.3 enforced on all APIs. | Protects Cardholder Data (CHD) in transit and auth credentials. |
+| **GDPR / EU Data Act Ch. VII** | Data Residency & Sovereign Access Control | Ceph pool CRUSH rules pinned to domestic physical storage hosts only. | Compliance with sovereign borders data processing laws and blocking unlawful non-EU access requests. |
 
 ---
 
@@ -378,6 +400,17 @@ The following TCP/UDP ports must be permitted across interfaces:
 | Compute / Tenants| NetApp / Dell Array | \`445 / TCP\` | CIFS/SMB | Manila Shared CIFS (Windows shares) |
 | Compute Nodes | Dell PowerFlex | \`7011 / TCP\` | PowerFlex SDC | PowerFlex Storage Data Client API |
 | Controller Nodes| NetApp Controller | \`443 / TCP\` | NetApp ONTAPI | Cinder/Manila control plane volume provisioning |
+| Compute Nodes | Pure FlashArray | \`3260 / TCP\` | iSCSI | Cinder volumes mapping (Pure iSCSI) |
+| Compute Nodes | Pure FlashArray | \`4420 / TCP\` | NVMe-oF/TCP | Cinder volumes mapping (Pure NVMe) |
+| Controller Nodes| Pure FlashArray | \`443 / TCP\` | Pure REST API | Cinder control plane volume provisioning |
+| Compute Nodes | HPE SAN Array | \`3260 / TCP\` | iSCSI | Cinder volumes mapping (HPE iSCSI) |
+| Controller Nodes| HPE SAN Array | \`443 / 8080 / TCP\` | HPE WSAPI | Cinder control plane (443 Primera/Alletra, 8080 3PAR) |
+| Compute Nodes | Dell PowerStore/PowerMax | \`3260 / TCP\` | iSCSI | Cinder volumes mapping (Dell iSCSI) |
+| Compute Nodes | Dell PowerStore/PowerMax | \`4420 / TCP\` | NVMe-TCP | Cinder volumes mapping (Dell NVMe-TCP) |
+| Controller Nodes| Dell PowerStore/PowerMax | \`443 / 8443 / TCP\` | REST / Unisphere | Cinder control plane (443 PowerStore, 8443 PowerMax) |
+| Compute Nodes | VAST Data Cluster | \`4420 / TCP\` | NVMe-oF/TCP | Cinder volumes mapping (VAST) |
+| Compute / Tenants| VAST Data Cluster | \`2049 / TCP\` | NFS | Manila Shared NFS (VAST) |
+| Controller Nodes| VAST Data Cluster | \`443 / TCP\` | VAST VMS REST | Cinder/Manila control plane volume provisioning |
 | Glance / Controllers| StorageGrid Endpoint| \`${storagegridPort} / TCP\` | StorageGrid S3 | Object storage API for Glance images |
 
 ### Control Plane Management Ports
@@ -404,7 +437,31 @@ ${enableK8s ? `### Kubernetes Cluster Traffic Ports
 ## 4. Cinder Storage Low-Level Details & Data Flow
 The deployment leverages multi-backend block storage arrays. Data flows and configuration limits are detailed below:
 
-${cinderBackends.map(b => `### Backend: ${b.toUpperCase()}
+${(() => {
+  const hpeWsapiPort = hpePlatform === '3par' ? 8080 : 443;
+  const dellpsMgmtPort = dellpsPlatform === 'powermax' ? 8443 : 443;
+  const dellpsMgmtLabel = dellpsPlatform === 'powermax' ? 'Unisphere' : 'REST';
+  const controllerLabel = {
+    ceph: 'Ceph RADOS Cluster (OSDs 6800-7300)',
+    netapp: `NetApp ONTAP Cluster (SVM - ${netappProto.toUpperCase()} Port ${netappProto === 'iscsi' ? '3260' : '2049'})`,
+    emc: 'Dell EMC PowerFlex MDM/SDS (Port 7011)',
+    pure: `Pure Storage FlashArray (${pureProto.toUpperCase()}, REST 443)`,
+    hpe: `HPE ${hpePlatform === '3par' ? '3PAR' : 'Primera/Alletra'} (${hpeProto.toUpperCase()}, WSAPI ${hpeWsapiPort})`,
+    dellps: `Dell ${dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore'} (${dellpsProto.toUpperCase()}, ${dellpsMgmtLabel} ${dellpsMgmtPort})`,
+    vast: `VAST Data Cluster (NVMe-oF/TCP, VMS REST 443)`
+  };
+  const dataPathDetail = {
+    ceph: '  - **Ceph RBD:** Compute node hosts a librbd driver directly in QEMU. QEMU directly contacts OSD ports (`6800-7300`) over the Storage Frontend network.',
+    netapp: netappProto === 'iscsi'
+      ? '  - **NetApp iSCSI:** QEMU/Libvirt initiates an iSCSI session to the target portal (Port 3260). The block device is exposed as a local SCSI block (e.g. `/dev/sdX`) and attached to the VM.'
+      : '  - **NetApp NFS:** Compute node mounts the NFS share (Port 2049). The VM disk is stored as a `.raw` or `.qcow2` image file on the mounted directory.',
+    emc: '  - **Dell PowerFlex:** SDC driver intercepts system calls and maps logical volumes directly to block devices over PowerFlex network ports.',
+    pure: `  - **Pure Storage FlashArray (${pureProto.toUpperCase()}):** ${pureProto === 'fc' ? 'Libvirt attaches the LUN over a zoned FC fabric path.' : pureProto.startsWith('nvme') ? 'Libvirt attaches the volume over an NVMe-oF namespace (port 4420).' : 'QEMU/Libvirt initiates an iSCSI session to the target portal (Port 3260).'} Dedup/compression run continuously at the array controller, invisible to the data path.`,
+    hpe: `  - **HPE ${hpeProto.toUpperCase()}:** ${hpeProto === 'fc' ? 'Libvirt attaches the LUN over a zoned FC fabric path.' : 'QEMU/Libvirt initiates an iSCSI session to the target portal (Port 3260).'} Control-plane volume operations route through the array's WSAPI (port ${hpeWsapiPort}).`,
+    dellps: `  - **Dell ${dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore'} (${dellpsProto.toUpperCase()}):** ${dellpsProto === 'fc' ? 'Libvirt attaches the LUN over a zoned FC fabric path.' : dellpsProto === 'nvme-tcp' ? 'Libvirt attaches the volume over an NVMe-oF/TCP namespace (port 4420).' : 'QEMU/Libvirt initiates an iSCSI session to the target portal (Port 3260).'} ${dellpsPlatform === 'powermax' ? 'Control-plane operations route through Unisphere for PowerMax, not the array directly.' : 'Control-plane operations talk directly to the array REST gateway.'}`,
+    vast: '  - **VAST Data (NVMe-oF/TCP):** Libvirt attaches the volume over an NVMe-oF/TCP namespace served from the cluster VIP pool (port 4420). Control-plane volume operations route through the VMS management API (port 443).'
+  };
+  return cinderBackends.map(b => `### Backend: ${b.toUpperCase()}
 \`\`\`
 [ Tenant VM ] (Inside Compute Node)
      |
@@ -418,14 +475,15 @@ ${cinderBackends.map(b => `### Backend: ${b.toUpperCase()}
 +--------------------------------------------------------------------------+
 |                        BACKEND STORAGE CONTROLLER                        |
 +--------------------------------------------------------------------------+
-|  ${b === 'ceph' ? 'Ceph RADOS Cluster (OSDs 6800-7300)' : b === 'netapp' ? `NetApp ONTAP Cluster (SVM - ${netappProto.toUpperCase()} Port ${netappProto === 'iscsi' ? '3260' : '2049'})` : 'Dell EMC PowerFlex MDM/SDS (Port 7011)'} |
+|  ${controllerLabel[b] || b.toUpperCase()} |
 +--------------------------------------------------------------------------+
 \`\`\`
 
 #### IO Flow Details (${b.toUpperCase()})
 - **Control Path:** The user requests a volume attach. \`cinder-api\` validates and writes to the DB. \`cinder-scheduler\` forwards to \`cinder-volume\` managing the selected backend.
 - **Data Path:**
-${b === 'ceph' ? '  - **Ceph RBD:** Compute node hosts a librbd driver directly in QEMU. QEMU directly contacts OSD ports (`6800-7300`) over the Storage Frontend network.' : b === 'netapp' && netappProto === 'iscsi' ? '  - **NetApp iSCSI:** QEMU/Libvirt initiates an iSCSI session to the target portal (Port 3260). The block device is exposed as a local SCSI block (e.g. `/dev/sdX`) and attached to the VM.' : b === 'netapp' && netappProto === 'nfs' ? '  - **NetApp NFS:** Compute node mounts the NFS share (Port 2049). The VM disk is stored as a `.raw` or `.qcow2` image file on the mounted directory.' : '  - **Dell PowerFlex:** SDC driver intercepts system calls and maps logical volumes directly to block devices over PowerFlex network ports.'}`).join('\n\n')}
+${dataPathDetail[b] || `  - Data path details for backend "${b}" are not yet documented in this template.`}`).join('\n\n');
+})()}
 
 ---
 
@@ -552,8 +610,15 @@ export function generateAnsible(inputs, computeResult, cephResult) {
   const {
     cinderBackends = ['ceph'],
     manilaBackends = ['cephfs_native'],
-    enableStoragegrid = false
+    enableStoragegrid = false,
+    openstackVersion = '2024.1'
   } = inputs;
+
+  const openstackCodenames = {
+    '2026.1': 'Gazpacho', '2025.2': 'Flamingo', '2025.1': 'Epoxy', '2024.2': 'Dalmatian',
+    '2024.1': 'Caracal', '2023.2': 'Bobcat', '2023.1': 'Antelope', zed: 'Zed', yoga: 'Yoga'
+  };
+  const openstackCodename = openstackCodenames[openstackVersion] || openstackVersion;
 
   const isCeph = cephBackendUsed(cinderBackends, manilaBackends);
   const mgmtSubnet = inputs.mgmtSubnet || '10.10.10.0/24';
@@ -594,7 +659,7 @@ ${isCeph ? Array.from({ length: cephResult.cephNodes }).map((_, i) => `cephstora
 ---
 kolla_base_distro: "ubuntu"
 kolla_install_type: "source"
-openstack_release: "2024.1" # Caracal
+openstack_release: "${openstackVersion}" # ${openstackCodename}
 
 # HA configuration
 kolla_internal_vip_address: "${getIpAddress(apiSubnet, ctrlStart - 1)}"
@@ -614,10 +679,18 @@ enable_keystone: "yes"
 cinder_backend_ceph: "${cinderBackends.includes('ceph') ? 'yes' : 'no'}"
 enable_cinder_backend_netapp: "${cinderBackends.includes('netapp') ? 'yes' : 'no'}"
 enable_cinder_backend_dell_emc: "${cinderBackends.includes('emc') ? 'yes' : 'no'}"
+# NOTE: Kolla-Ansible has no built-in role for Pure/HPE/Dell PowerStore-PowerMax/VAST like it
+# does for the vendors above. These are represented here as sizing flags only; the actual driver
+# stanza must be injected via /etc/kolla/config/cinder/cinder-volume.conf (see cinder.conf tab).
+enable_cinder_backend_pure: "${cinderBackends.includes('pure') ? 'yes' : 'no'}"
+enable_cinder_backend_hpe: "${cinderBackends.includes('hpe') ? 'yes' : 'no'}"
+enable_cinder_backend_dellps: "${cinderBackends.includes('dellps') ? 'yes' : 'no'}"
+enable_cinder_backend_vast: "${cinderBackends.includes('vast') ? 'yes' : 'no'}"
 
 # Manila (Shared File Systems) Backend Selection
 manila_backend_cephfs: "${manilaBackends.some(b => b.startsWith('cephfs')) ? 'yes' : 'no'}"
 enable_manila_backend_netapp: "${manilaBackends.includes('netapp') ? 'yes' : 'no'}"
+enable_manila_backend_vast: "${manilaBackends.includes('vast') ? 'yes' : 'no'}"
 
 # Glance Object Backend Selection
 glance_backend_s3: "${enableStoragegrid ? 'yes' : 'no'}"
@@ -641,11 +714,16 @@ export function generateJujuBundle(inputs) {
   const hasCinderCeph = cinderBackends.includes('ceph');
   const hasCinderNetapp = cinderBackends.includes('netapp');
   const hasCinderEmc = cinderBackends.includes('emc');
+  const hasCinderPure = cinderBackends.includes('pure');
+  const hasCinderHpe = cinderBackends.includes('hpe');
+  const hasCinderDellps = cinderBackends.includes('dellps');
+  const hasCinderVast = cinderBackends.includes('vast');
   const hasManilaCephfs = manilaBackends.some(b => b.startsWith('cephfs'));
   const hasManilaNetapp = manilaBackends.includes('netapp');
+  const hasManilaVast = manilaBackends.includes('vast');
   const hasCeph = hasCinderCeph || hasManilaCephfs || glanceBackend === 'rbd';
 
-  const defaultVolumeType = hasCinderCeph ? 'ceph_rbd' : (hasCinderNetapp ? 'netapp_iscsi' : (hasCinderEmc ? 'powerflex' : 'ceph_rbd'));
+  const defaultVolumeType = hasCinderCeph ? 'ceph_rbd' : (hasCinderNetapp ? 'netapp_iscsi' : (hasCinderEmc ? 'powerflex' : (hasCinderPure ? 'pure_backend' : (hasCinderHpe ? 'hpe_backend' : (hasCinderDellps ? 'dellps_backend' : (hasCinderVast ? 'vast_backend' : 'ceph_rbd'))))));
 
   let cephMonCharm = '';
   let cephMonRelations = '';
@@ -681,6 +759,26 @@ export function generateJujuBundle(inputs) {
   # Deploy cinder-dell-emc equivalent manually or via a custom charm and relate to cinder:storage-backend.
 `;
   }
+  if (hasCinderPure) {
+    cinderBackendCharms += `  # NOTE: No official Charmhub charm exists for Pure Storage FlashArray.
+  # Inject the [pure_backend] stanza (see cinder.conf tab) via cinder's config overlay and relate manually.
+`;
+  }
+  if (hasCinderHpe) {
+    cinderBackendCharms += `  # NOTE: No official Charmhub charm exists for HPE Alletra/Primera/3PAR.
+  # Inject the [hpe_backend] stanza (see cinder.conf tab) via cinder's config overlay and relate manually.
+`;
+  }
+  if (hasCinderDellps) {
+    cinderBackendCharms += `  # NOTE: No official Charmhub charm exists for Dell PowerStore/PowerMax.
+  # Inject the [dellps_backend] stanza (see cinder.conf tab) via cinder's config overlay and relate manually.
+`;
+  }
+  if (hasCinderVast) {
+    cinderBackendCharms += `  # NOTE: No official Charmhub charm exists for VAST Data.
+  # Inject the [vast_backend] stanza (see cinder.conf tab) via cinder's config overlay and relate manually.
+`;
+  }
 
   let manilaBackendCharms = '';
   if (hasManilaCephfs) {
@@ -692,6 +790,11 @@ export function generateJujuBundle(inputs) {
   if (hasManilaNetapp) {
     manilaBackendCharms += `  # NOTE: Configure manila's netapp-nas-* options directly, or relate a manila-generic subordinate
   # charm for NetApp ONTAP NAS backend support.
+`;
+  }
+  if (hasManilaVast) {
+    manilaBackendCharms += `  # NOTE: No official Charmhub charm exists for VAST Data Manila support.
+  # Inject the [vast_shares] stanza (see manila.conf tab) via manila's config overlay and relate manually.
 `;
   }
 
@@ -810,6 +913,77 @@ export function generateRhospTemplates(inputs) {
   } = inputs;
 
   if (openstackVersion === '18.0') {
+    const cb = inputs.cinderBackends || ['ceph'];
+    const rhosoCinderBlocks = [];
+    if (cb.includes('ceph')) {
+      rhosoCinderBlocks.push(`        ceph-backend:
+          customServiceConfig: |
+            [ceph-backend]
+            volume_backend_name = ceph
+            volume_driver = cinder.volume.drivers.rbd.RBDDriver
+            rbd_pool = volumes
+            rbd_user = openstack
+            rbd_secret_uuid = $secret_uuid`);
+    }
+    if (cb.includes('netapp')) {
+      rhosoCinderBlocks.push(`        netapp-backend:
+          customServiceConfig: |
+            [netapp-backend]
+            volume_backend_name = netapp_backend
+            volume_driver = cinder.volume.drivers.netapp.common.NetAppDriver
+            netapp_storage_family = ontap_cluster
+            netapp_storage_protocol = ${inputs.netappProto || 'iscsi'}
+            netapp_server_hostname = ${inputs.netappIp || '10.10.30.50'}`);
+    }
+    if (cb.includes('emc')) {
+      rhosoCinderBlocks.push(`        powerflex-backend:
+          customServiceConfig: |
+            [powerflex-backend]
+            volume_backend_name = powerflex_backend
+            volume_driver = cinder.volume.drivers.dell_emc.powerflex.driver.PowerFlexDriver
+            san_ip = ${inputs.emcIp || '10.10.30.60'}
+            powerflex_storage_pools = ${inputs.emcPool || 'sp_gold_cinder'}`);
+    }
+    if (cb.includes('pure')) {
+      rhosoCinderBlocks.push(`        pure-backend:
+          customServiceConfig: |
+            [pure-backend]
+            volume_backend_name = pure_backend
+            volume_driver = cinder.volume.drivers.pure.${(inputs.pureProto || 'iscsi') === 'fc' ? 'PureFCDriver' : (inputs.pureProto || 'iscsi').startsWith('nvme') ? 'PureNVMEDriver' : 'PureISCSIDriver'}
+            san_ip = ${inputs.pureIp || '10.10.30.80'}`);
+    }
+    if (cb.includes('hpe')) {
+      rhosoCinderBlocks.push(`        hpe-backend:
+          customServiceConfig: |
+            [hpe-backend]
+            volume_backend_name = hpe_backend
+            volume_driver = cinder.volume.drivers.hpe.hpe_3par_${(inputs.hpeProto || 'fc') === 'iscsi' ? 'iscsi.HPE3PARISCSIDriver' : 'fc.HPE3PARFCDriver'}
+            hpe3par_api_url = https://${inputs.hpeIp || '10.10.30.90'}:${(inputs.hpePlatform || 'primera_alletra') === '3par' ? 8080 : 443}/api/v1`);
+    }
+    if (cb.includes('dellps')) {
+      const isPmax = inputs.dellpsPlatform === 'powermax';
+      rhosoCinderBlocks.push(`        dellps-backend:
+          customServiceConfig: |
+            [dellps-backend]
+            volume_backend_name = dellps_backend
+            ${isPmax ? `volume_driver = cinder.volume.drivers.dell_emc.powermax.PowerMaxISCSIDriver\n            san_api_port = 8443` : `volume_driver = cinder.volume.drivers.dell_emc.powerstore.driver.PowerStoreDriver`}
+            san_ip = ${inputs.dellpsIp || '10.10.30.95'}`);
+    }
+    if (cb.includes('vast')) {
+      rhosoCinderBlocks.push(`        vast-backend:
+          customServiceConfig: |
+            [vast-backend]
+            volume_backend_name = vast_backend
+            volume_driver = cinder.volume.drivers.vastdata.driver.VASTVolumeDriver
+            san_ip = ${inputs.vastIp || '10.10.30.110'}
+            vast_vippool_name = ${inputs.vastVippool || 'cinder-vip-pool'}`);
+    }
+    const rhosoCinderVolumesYaml = rhosoCinderBlocks.length > 0 ? rhosoCinderBlocks.join('\n') : `        ceph-backend:
+          customServiceConfig: |
+            [ceph-backend]
+            volume_backend_name = ceph
+            volume_driver = cinder.volume.drivers.rbd.RBDDriver`;
+
     return `# Red Hat OpenStack Services on OpenShift (RHOSO) 18.0 Custom Resource
 # File: openstack-control-plane.yaml
 apiVersion: core.openstack.org/v1beta1
@@ -854,14 +1028,7 @@ spec:
       cinderBackup:
         replicas: ${inputs.enableCinderBackup === 'true' || inputs.enableCinderBackup === true ? (inputs.haBuffer || 2) : 0}
       cinderVolumes:
-        ceph-backend:
-          customServiceConfig: |
-            [ceph-backend]
-            volume_backend_name = ceph
-            volume_driver = cinder.volume.drivers.rbd.RBDDriver
-            rbd_pool = volumes
-            rbd_user = openstack
-            rbd_secret_uuid = $secret_uuid
+${rhosoCinderVolumesYaml}
 
   nova:
     template:
@@ -995,6 +1162,16 @@ export function generateCinderConf(inputs) {
     netappProto = 'iscsi',
     emcIp = '10.10.30.60',
     emcPool = 'sp_gold_cinder',
+    pureIp = '10.10.30.80',
+    pureProto = 'iscsi',
+    hpeIp = '10.10.30.90',
+    hpePlatform = 'primera_alletra',
+    hpeProto = 'fc',
+    dellpsIp = '10.10.30.95',
+    dellpsPlatform = 'powerstore',
+    dellpsProto = 'iscsi',
+    vastIp = '10.10.30.110',
+    vastVippool = 'cinder-vip-pool',
     apiSubnet = '10.10.20.0/24',
     netappDedup = 'true',
     netappCompression = 'true',
@@ -1075,6 +1252,79 @@ powerflex_storage_pools = ${emcPool}
 powerflex_server_api_port = 443
 powerflex_round_robin_device_numbering = true
 powerflex_allow_non_disruptive_volume_refresh = true\n`;
+  }
+
+  if (cinderBackends.includes('pure')) {
+    enabledBackendsList.push('pure_backend');
+    const pureDriverClass = {
+      iscsi: 'cinder.volume.drivers.pure.PureISCSIDriver',
+      fc: 'cinder.volume.drivers.pure.PureFCDriver',
+      'nvme-roce': 'cinder.volume.drivers.pure.PureNVMEDriver',
+      'nvme-tcp': 'cinder.volume.drivers.pure.PureNVMEDriver'
+    }[pureProto] || 'cinder.volume.drivers.pure.PureISCSIDriver';
+    backendsConfigs += `\n[pure_backend]
+# CONSIDERATION: Pure Storage FlashArray driver. Dedup/compression are always-on at the array (not driver-toggled).
+volume_driver = ${pureDriverClass}
+volume_backend_name = pure_backend
+san_ip = ${pureIp}
+pure_api_token = PURE_API_TOKEN_PLACEHOLDER
+${pureProto === 'nvme-roce' ? 'pure_nvme_transport = roce' : (pureProto === 'nvme-tcp' ? 'pure_nvme_transport = tcp' : '')}
+${enableCinderReplication ? `pure_replica_interval_default = 3600\nreplication_device = backend_id:pure-replica,pure_api_token:PURE_REPLICA_API_TOKEN_PLACEHOLDER,san_ip:${cinderReplTarget}` : ''}\n`;
+  }
+
+  if (cinderBackends.includes('hpe')) {
+    enabledBackendsList.push('hpe_backend');
+    const hpeDriverClass = hpeProto === 'iscsi' ? 'cinder.volume.drivers.hpe.hpe_3par_iscsi.HPE3PARISCSIDriver' : 'cinder.volume.drivers.hpe.hpe_3par_fc.HPE3PARFCDriver';
+    const hpeWsapiPort = hpePlatform === '3par' ? 8080 : 443;
+    backendsConfigs += `\n[hpe_backend]
+# CONSIDERATION: HPE ${hpePlatform === '3par' ? '3PAR' : 'Primera/Alletra 9k/Alletra MP'} driver (WSAPI port ${hpeWsapiPort}). Requires python-3parclient.
+volume_driver = ${hpeDriverClass}
+volume_backend_name = hpe_backend
+hpe3par_api_url = https://${hpeIp}:${hpeWsapiPort}/api/v1
+hpe3par_username = admin
+hpe3par_password = HPESecurePass123!
+hpe3par_san_ip = ${hpeIp}
+hpe3par_san_login = admin
+hpe3par_san_password = HPESecurePass123!
+hpe3par_cpg = OpenStack_CPG${enableCinderReplication ? `\nreplication_device = backend_id:hpe-replica,hpe3par_api_url:https://${cinderReplTarget}:${hpeWsapiPort}/api/v1,hpe3par_username:admin,hpe3par_password:HPESecurePass123!,hpe3par_san_ip:${cinderReplTarget},cpg_map:OpenStack_CPG:OpenStack_CPG` : ''}\n`;
+  }
+
+  if (cinderBackends.includes('dellps')) {
+    enabledBackendsList.push('dellps_backend');
+    const dellpsIsPowerMax = dellpsPlatform === 'powermax';
+    const dellpsDriverClass = dellpsIsPowerMax
+      ? { iscsi: 'PowerMaxISCSIDriver', fc: 'PowerMaxFCDriver', 'nvme-tcp': 'PowerMaxNVMETCPDriver' }[dellpsProto] || 'PowerMaxISCSIDriver'
+      : (dellpsProto === 'nvme-tcp' ? 'cinder.volume.drivers.dell_emc.powerstore.driver.PowerStoreDriver' : 'cinder.volume.drivers.dell_emc.powerstore.driver.PowerStoreDriver');
+    backendsConfigs += dellpsIsPowerMax ? `\n[dellps_backend]
+# CONSIDERATION: Dell PowerMax driver, managed via Unisphere for PowerMax (port 8443), not direct-to-array.
+volume_driver = cinder.volume.drivers.dell_emc.powermax.${dellpsDriverClass}
+volume_backend_name = dellps_backend
+san_ip = ${dellpsIp}
+san_api_port = 8443
+san_login = admin
+san_password = PowerMaxSecurePass123!
+powermax_srp = SRP_1
+powermax_array = 000000000001${enableCinderReplication ? `\nreplication_device = target_device_id:000000000002,remote_port_group:OS-PG,remote_pool:SRP_1,rdf_group_label:23,mode:${cinderReplMode === 'sync' ? 'Synchronous' : 'Asynchronous'}` : ''}\n` : `\n[dellps_backend]
+# CONSIDERATION: Dell PowerStore driver, direct-to-array REST gateway (port 443).
+volume_driver = ${dellpsDriverClass}
+volume_backend_name = dellps_backend
+san_ip = ${dellpsIp}
+san_login = admin
+san_password = PowerStoreSecurePass123!
+storage_protocol = ${dellpsProto === 'nvme-tcp' ? 'NVMe-TCP' : dellpsProto.toUpperCase()}${enableCinderReplication ? `\nreplication_device = backend_id:dellps-replica,san_ip:${cinderReplTarget},san_login:admin,san_password:PowerStoreSecurePass123!,storage_protocol:${dellpsProto.toUpperCase()}` : ''}\n`;
+  }
+
+  if (cinderBackends.includes('vast')) {
+    enabledBackendsList.push('vast_backend');
+    backendsConfigs += `\n[vast_backend]
+# CONSIDERATION: VAST Data driver. NVMe-oF/TCP only, requires VAST cluster release >= 5.3.
+volume_driver = cinder.volume.drivers.vastdata.driver.VASTVolumeDriver
+volume_backend_name = vast_backend
+san_ip = ${vastIp}
+san_api_port = 443
+san_login = admin
+san_password = VastSecurePass123!
+vast_vippool_name = ${vastVippool}\n`;
   }
 
   const enabledBackendsStr = enabledBackendsList.join(', ');
@@ -1167,6 +1417,8 @@ export function generateManilaConf(inputs) {
     manilaDhss = 'false',
     netappIp = '10.10.30.50',
     netappSvm = 'svm_manila_shares',
+    vastIp = '10.10.30.110',
+    vastRootExport = 'manila',
     apiSubnet = '10.10.20.0/24',
     enableManilaReplication = 'false',
     compliance = []
@@ -1219,8 +1471,25 @@ ${manilaDhss === 'false' ? `netapp_vserver = ${netappSvm}` : '# SVM dynamically 
 ${enableManilaReplication === 'true' ? 'replica_state_update_interval = 300\nreplication_domain = snapmirror_dr_domain' : ''}\n`;
   }
 
+  if (manilaBackends.includes('vast')) {
+    enabledBackendsList.push('vast_shares');
+    backendConfig += `\n[vast_shares]
+# CONSIDERATION: VAST Data NFS share driver. DHSS=False only, no share-server VMs.
+share_driver = manila.share.drivers.vastdata.driver.VASTShareDriver
+share_backend_name = vast_shares
+driver_handles_share_servers = False
+vast_mgmt_host = ${vastIp}
+vast_mgmt_user = admin
+vast_mgmt_password = VastSecurePass123!
+vast_root_export = ${vastRootExport}\n`;
+  }
+
   const enabledBackendsStr = enabledBackendsList.join(', ');
-  const enabledProtocols = manilaBackends.includes('netapp') ? 'NFS, CIFS, CEPHFS' : 'CEPHFS, NFS';
+  const protocolsList = [];
+  if (manilaBackends.some(b => b.startsWith('cephfs'))) protocolsList.push('CEPHFS');
+  if (manilaBackends.includes('netapp')) protocolsList.push('NFS', 'CIFS');
+  if (manilaBackends.includes('vast')) protocolsList.push('NFS');
+  const enabledProtocols = [...new Set(protocolsList)].join(', ') || 'CEPHFS';
 
   return `${getComplianceComments(inputs, 'manila')}# /etc/manila/manila.conf
 # Dynamic configuration for OpenStack Manila backend
@@ -1278,7 +1547,7 @@ cluster_network = ${storageBackSubnet}
 
 osd_pool_default_size = ${finalReplicaFactor}
 osd_pool_default_min_size = 2
-${isSovereign && replicaFactor < 3 ? '# Compliance Override: pool default size forced to 3 (NCA CSCC CCC-6.1 / DESC CSP Sec 11.2)\n' : ''}
+${isSovereign && replicaFactor < 3 ? '# Compliance Override: pool default size forced to 3 (NCA CCC-2:2024 data-durability domain / DESC CSP ISR v3.0)\n' : ''}
 enable_experimental_unrecoverable_data_corrupting_features = ""
 bluestore_block_db_size = ${osdMedia === 'hdd' ? '21474836480' : '0'}
 bluestore_block_wal_size = ${osdMedia === 'hdd' ? '5368709120' : '0'}
@@ -1558,7 +1827,7 @@ vni_ranges = 1000:5000
 [securitygroup]
 enable_security_group = true
 firewall_driver = ${firewallDriver}
-${isComplianceActive ? '# Compliance Override: OvsFirewallDriver enforced to secure tenant traffic segmentation (NCA CSCC CCC-1.2 / DESC CSP Sec 6)\n' : ''}${ovnConfig}
+${isComplianceActive ? '# Compliance Override: OvsFirewallDriver enforced to secure tenant traffic segmentation (NCA CCC-2:2024 network security domain / DESC CSP ISR v3.0)\n' : ''}${ovnConfig}
 `;
 }
 
@@ -1695,7 +1964,9 @@ Perform these steps on your deployment host (Juju client machine):
    # Source credentials to gain CLI access
    source ./openrc
    openstack service list
-   \`\`\``;
+   \`\`\`
+
+> **Note on Canonical Sunbeam:** the steps above target the classic machine-charm bundle this tool generates. Canonical now also ships **Sunbeam** — a Kubernetes-native, Juju-orchestrated deployment model positioned as its recommended path for new small/edge-scale OpenStack clouds (\`sunbeam cluster bootstrap\`, not a \`bundle.yaml\`). Sunbeam does not yet have full outcome parity with classic Charmed OpenStack for large multi-site CSP deployments, so this tool continues to target the classic charm bundle; evaluate Sunbeam directly if you are starting a new small-scale deployment.`;
   } else if (openstackDistro === 'rhosp') {
     if (openstackVersion === '18.0') {
       distroSteps = `## 2. Red Hat OpenStack Services on OpenShift (RHOSO) 18.0 Operator Deployment
@@ -2189,6 +2460,16 @@ export function generateProposalDesign(inputs, computeResult, cephResult) {
     netappProto = 'iscsi',
     netappDedup = 'true',
     netappCompression = 'true',
+    pureIp = '10.10.30.80',
+    pureProto = 'iscsi',
+    hpeIp = '10.10.30.90',
+    hpePlatform = 'primera_alletra',
+    hpeProto = 'fc',
+    dellpsIp = '10.10.30.95',
+    dellpsPlatform = 'powerstore',
+    dellpsProto = 'iscsi',
+    vastIp = '10.10.30.110',
+    vastVippool = 'cinder-vip-pool',
     enableCinderBackup = 'false',
     enableBarbican = false,
     barbicanBackend = 'vault',
@@ -2221,6 +2502,10 @@ export function generateProposalDesign(inputs, computeResult, cephResult) {
   const hasNetApp = cinderBackends.includes('netapp') || manilaBackends.includes('netapp');
   const hasCeph = cinderBackends.includes('ceph') || manilaBackends.includes('cephfs_native') || glanceBackend === 'rbd';
   const hasPowerFlex = cinderBackends.includes('emc');
+  const hasPure = cinderBackends.includes('pure');
+  const hasHpe = cinderBackends.includes('hpe');
+  const hasDellps = cinderBackends.includes('dellps');
+  const hasVast = cinderBackends.includes('vast') || manilaBackends.includes('vast');
 
   // NetApp Section
   let netappSection = '';
@@ -2274,6 +2559,63 @@ Dell PowerFlex is configured to deliver software-defined block storage with extr
   * **Dynamic Load Balancing:** Block read/write calls are automatically load-balanced across all physical data paths and network interfaces, eliminating the need for complex multipath configuration daemons (like multipathd) and providing seamless throughput.`;
   }
 
+  // Pure Storage FlashArray Section
+  let pureSection = '';
+  if (hasPure) {
+    pureSection = `### 4.4 Pure Storage FlashArray Integration
+Pure Storage FlashArray is configured as an all-flash Cinder backend over **${pureProto === 'fc' ? 'Fibre Channel' : pureProto === 'iscsi' ? 'iSCSI' : 'NVMe-oF'}** (array management: \`${pureIp}\`).
+
+* **Always-On Storage Efficiency:**
+  * Deduplication and compression run continuously at the array controller level and are not toggled by the Cinder driver &mdash; there is no thin/thick provisioning tradeoff to size for.
+* **Replication & DR:**
+  * FlashArray supports asynchronous replication, synchronous replication via a stretched **ActiveCluster Pod**, and 3-site simultaneous sync+async ("Trisync") topologies for regulated multi-site deployments.
+* **File Workloads:**
+  * FlashArray itself has **no official Manila (file share) driver** &mdash; Pure's Manila support targets the separate **FlashBlade** platform. File workloads on this design continue to route through the Ceph/NetApp/VAST Manila backends configured elsewhere in this document.`;
+  }
+
+  // HPE Alletra/Primera/3PAR Section
+  let hpeSection = '';
+  if (hasHpe) {
+    const hpeWsapiPort = hpePlatform === '3par' ? 8080 : 443;
+    hpeSection = `### 4.5 HPE ${hpePlatform === '3par' ? '3PAR' : 'Primera / Alletra 9k / Alletra MP'} Integration
+HPE's enterprise SAN array is configured as a Cinder backend over **${hpeProto === 'fc' ? 'Fibre Channel' : 'iSCSI'}**, managed through the array's WSAPI on port **${hpeWsapiPort}** (\`${hpeIp}\`).
+
+* **Single Driver Family:** The same HPE 3PAR driver codebase (\`hpe_3par_fc\`/\`hpe_3par_iscsi\`) spans the 3PAR-through-Alletra-MP lineage, version-gated by storage OS release.
+* **Storage Efficiency:** Primera/Alletra platforms combine dedup and compression into a single "deco" provisioning mode, mutually exclusive with plain thin provisioning.
+* **Replication:** "Peer Persistence" provides synchronous host-transparent failover with a quorum witness for split-brain protection.
+* **File Workloads:** No official Manila (file share) driver was confirmed for this HPE product line at time of writing &mdash; verify current vendor support before relying on it for file workloads.`;
+  }
+
+  // Dell PowerStore/PowerMax Section
+  let dellpsSection = '';
+  if (hasDellps) {
+    const isPowerMax = dellpsPlatform === 'powermax';
+    dellpsSection = `### 4.6 Dell ${isPowerMax ? 'PowerMax' : 'PowerStore'} Integration
+Dell ${isPowerMax ? 'PowerMax' : 'PowerStore'} is configured as a Cinder backend over **${dellpsProto === 'nvme-tcp' ? 'NVMe-TCP' : dellpsProto === 'fc' ? 'Fibre Channel' : 'iSCSI'}**${isPowerMax ? `, managed through **Unisphere for PowerMax** (port 8443) rather than direct array REST` : ', talking directly to the array REST gateway (port 443)'} (\`${dellpsIp}\`).
+
+${isPowerMax ? `* **Gateway Architecture:** Unlike PowerStore, PowerMax is managed through a Unisphere management server rather than direct array REST &mdash; Unisphere version must be paired with the target PowerMax OS release.
+* **Replication:** SRDF (Symmetrix Remote Data Facility) provides Synchronous, Asynchronous, and Metro replication modes, requiring pre-established SRDF groups.` : `* **Storage Efficiency:** PowerStore volumes are thin-provisioned and compressed by default; thick provisioning is not supported.
+* **Replication:** Cinder replication v2.1 with failover, plus "Metro volume" active/active clustering across a PowerStore pair.`}
+* **File Workloads:** No official Manila (file share) driver was confirmed for ${isPowerMax ? 'PowerMax' : 'PowerStore'} &mdash; Dell's historical Manila support targets the separate Unity/PowerScale product line.`;
+  }
+
+  // VAST Data Section
+  let vastSection = '';
+  if (hasVast) {
+    const vastParts = [];
+    if (cinderBackends.includes('vast')) {
+      vastParts.push(`* **Block (Cinder):** \`VASTVolumeDriver\` presents NVMe-oF/TCP volumes off VIP pool \`${vastVippool}\` (data path port 4420). Requires VAST cluster release &ge; 5.3.`);
+    }
+    if (manilaBackends.includes('vast')) {
+      vastParts.push(`* **File (Manila):** \`VASTShareDriver\` presents NFS shares (\`driver_handles_share_servers = False\`) from the same VMS-managed cluster. Requires "Trash Folder Access" enabled on the VAST cluster.`);
+    }
+    vastSection = `### 4.7 VAST Data Universal Storage Integration
+VAST Data is configured against VMS management endpoint \`${vastIp}\`. It is unique among this design's storage vendors in shipping **both** an official upstream Cinder block driver and Manila file driver from a single management plane:
+
+${vastParts.join('\n')}
+* **Sizing Note:** VAST's own replication/efficiency behavior is not standardized in the upstream OpenStack driver documentation &mdash; confirm dedup, compression, and DR capabilities directly against VAST's current cluster release notes before committing to capacity or RPO/RTO targets in a customer-facing SOW.`;
+  }
+
   return `# Technical Proposal & OpenStack Cloud Architecture Design
 **Project Target:** ${projectName}
 **Orchestration Distribution:** ${distroName}
@@ -2321,6 +2663,11 @@ ${netappSection || '*No NetApp backends selected in current sizing configuration
 ${cephSection || '*No Ceph backends selected in current sizing configuration.*'}
 
 ${powerflexSection || '*No Dell PowerFlex backends selected in current sizing configuration.*'}
+
+${pureSection}
+${hpeSection}
+${dellpsSection}
+${vastSection}
 
 ---
 

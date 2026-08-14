@@ -1,0 +1,119 @@
+{
+  "manifestVersion": 1,
+  "generatedAt": "2026-08-14T00:00:00Z",
+  "sourceNote": "Curated snapshot, web-verified as of 2026-08-14. Refresh via check_for_updates.py or the in-app Check for Updates button.",
+  "openstack": {
+    "latest": "2026.1",
+    "releases": [
+      { "value": "2026.1", "codename": "Gazpacho", "slurp": true, "releaseDate": "2026-04-01", "status": "current" },
+      { "value": "2025.2", "codename": "Flamingo", "slurp": false, "releaseDate": "2025-10-01", "status": "supported" },
+      { "value": "2025.1", "codename": "Epoxy", "slurp": true, "releaseDate": "2025-04-02", "status": "supported" },
+      { "value": "2024.2", "codename": "Dalmatian", "slurp": false, "releaseDate": "2024-10-02", "status": "supported" },
+      { "value": "2024.1", "codename": "Caracal", "slurp": true, "releaseDate": "2024-04-03", "status": "supported" },
+      { "value": "2023.2", "codename": "Bobcat", "slurp": false, "releaseDate": "2023-10-04", "status": "eol-soon" },
+      { "value": "2023.1", "codename": "Antelope", "slurp": true, "releaseDate": "2023-03-22", "status": "eol-soon" },
+      { "value": "zed", "codename": "Zed", "slurp": false, "releaseDate": "2022-10-05", "status": "eol" },
+      { "value": "yoga", "codename": "Yoga", "slurp": false, "releaseDate": "2022-03-30", "status": "eol" }
+    ],
+    "source": "https://releases.openstack.org/"
+  },
+  "redhat": {
+    "current": "18.0",
+    "options": [
+      { "value": "18.0", "label": "RHOSO 18.0 (OpenStack Services on OpenShift)", "status": "current" },
+      { "value": "17.1", "label": "RHOSP 17.1 (Classic Director-based)", "status": "deprecated", "deprecatedDate": "2027-09-22" },
+      { "value": "16.2", "label": "RHOSP 16.2 (Classic)", "status": "deprecated", "deprecatedDate": "2027-04-30" },
+      { "value": "13.0", "label": "RHOSP 13.0", "status": "eol", "eolDate": "2023-06-27" }
+    ],
+    "source": "https://access.redhat.com/support/policy/updates/openstack/platform"
+  },
+  "adjacentProjects": {
+    "kollaAnsible": { "status": "actively maintained", "notes": "Tracks the upstream OpenStack release train." },
+    "canonicalCharmedOpenstack": {
+      "status": "actively maintained, classic machine-charm bundles",
+      "notes": "Canonical now steers new small/edge-scale deployments toward Sunbeam (K8s-native, sunbeam cluster bootstrap) instead. Sunbeam is not yet at full outcome parity with classic Charmed OpenStack for large multi-site builds."
+    },
+    "ceph": { "current": "Tentacle (20.2.x)", "prior": ["Squid (19.x)", "Reef (18.x)"], "source": "https://docs.ceph.com/en/latest/releases/tentacle/" },
+    "neutronSdn": { "recommended": "ML2/OVN", "legacy": "ML2/OVS", "notes": "OVN has been the recommended default since the Xena/Yoga era; OVS is legacy." }
+  },
+  "compliance": {
+    "pciDss": { "current": "v4.0.1", "next": "v5.0 (in development, no release date)", "source": "https://blog.pcisecuritystandards.org/just-published-pci-dss-v4-0-1" },
+    "saudiNca": {
+      "correctFrameworkName": "NCA CCC (Cloud Cybersecurity Controls)",
+      "current": "CCC-2:2024",
+      "notes": "NCA CSCC (Critical Systems Cybersecurity Controls) is a different, non-cloud-specific framework and should not be used as the label for cloud controls.",
+      "source": "https://nca.gov.sa/en/regulatory-documents/controls-list/ccc/"
+    },
+    "dubaiDesc": {
+      "current": "DESC CSP Security Standard, layered on Information Security Regulation (ISR) v3.0",
+      "source": "https://www.desc.gov.ae/"
+    },
+    "uaeNesa": {
+      "current": "UAE IAR/IAS v2 (Sept 2025), administered by TDRA / Cyber Security Council",
+      "notes": "NESA was operationally succeeded by the Signals Intelligence Agency (SIA); 'NESA IAS' remains the common colloquial label industry-wide.",
+      "source": "https://business-ciso.com/blog/uae-iar-nesa-compliance-vciso-guide"
+    },
+    "hipaa": {
+      "status": "NPRM proposed, not final as of 2026-08",
+      "notes": "Encryption-at-rest/in-transit and MFA would become mandatory (currently addressable) under the pending HIPAA Security Rule update.",
+      "source": "https://qubika.com/blog/hipaa-security-rule-2025-nprm-changes-preparation/"
+    },
+    "gdpr": {
+      "notes": "Core GDPR text unchanged; EU Data Act Chapter VII (effective 2025-09-12) adds binding cloud data-sovereignty/egress-fee provisions worth citing alongside GDPR for EU data-residency claims.",
+      "source": "https://www.reedsmith.com/articles/the-eu-commissions-digital-package-reforming-gdpr/"
+    }
+  },
+  "storageVendors": {
+    "pure": {
+      "name": "Pure Storage FlashArray",
+      "cinderProtocols": ["iscsi", "fc", "nvme-roce", "nvme-tcp"],
+      "cinderDriverClasses": {
+        "iscsi": "cinder.volume.drivers.pure.PureISCSIDriver",
+        "fc": "cinder.volume.drivers.pure.PureFCDriver",
+        "nvme-roce": "cinder.volume.drivers.pure.PureNVMEDriver",
+        "nvme-tcp": "cinder.volume.drivers.pure.PureNVMEDriver"
+      },
+      "manilaDriver": null,
+      "manilaNote": "No official Manila driver for FlashArray; Pure's Manila support targets the separate FlashBlade platform.",
+      "mgmtPort": 443,
+      "source": "https://docs.openstack.org/cinder/latest/configuration/block-storage/drivers/pure-storage-driver.html"
+    },
+    "hpe": {
+      "name": "HPE Alletra / Primera / 3PAR",
+      "cinderProtocols": ["fc", "iscsi"],
+      "cinderDriverClasses": {
+        "fc": "cinder.volume.drivers.hpe.hpe_3par_fc.HPE3PARFCDriver",
+        "iscsi": "cinder.volume.drivers.hpe.hpe_3par_iscsi.HPE3PARISCSIDriver"
+      },
+      "manilaDriver": null,
+      "manilaNote": "No official Manila driver confirmed for this HPE product line.",
+      "wsapiPort": { "3par": 8080, "primera_alletra": 443 },
+      "source": "https://docs.openstack.org/cinder/latest/configuration/block-storage/drivers/hpe-3par-driver.html"
+    },
+    "dellps": {
+      "name": "Dell PowerStore / PowerMax",
+      "cinderProtocols": ["iscsi", "fc", "nvme-tcp"],
+      "powerstoreDriverClass": "cinder.volume.drivers.dell_emc.powerstore.driver.PowerStoreDriver",
+      "powermaxDriverClasses": {
+        "iscsi": "PowerMaxISCSIDriver",
+        "fc": "PowerMaxFCDriver",
+        "nvme-tcp": "PowerMaxNVMETCPDriver"
+      },
+      "manilaDriver": null,
+      "manilaNote": "No official Manila driver confirmed for PowerStore or PowerMax.",
+      "mgmtPort": { "powerstore": 443, "powermax": 8443 },
+      "source": "https://docs.openstack.org/cinder/latest/configuration/block-storage/drivers/dell-emc-powerstore-driver.html"
+    },
+    "vast": {
+      "name": "VAST Data",
+      "cinderProtocols": ["nvme-tcp"],
+      "cinderDriverClass": "cinder.volume.drivers.vastdata.driver.VASTVolumeDriver",
+      "manilaDriver": "manila.share.drivers.vastdata.driver.VASTShareDriver",
+      "manilaProtocol": "nfs",
+      "mgmtPort": 443,
+      "dataPort": 4420,
+      "notes": "Uniquely ships both an official Cinder block driver and Manila file driver from the same VMS management plane.",
+      "source": "https://docs.openstack.org/cinder/latest/configuration/block-storage/drivers/vastdata-volume-driver.html"
+    }
+  }
+}

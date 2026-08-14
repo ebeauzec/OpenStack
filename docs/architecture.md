@@ -89,3 +89,14 @@ The physical and logical system architecture is visualized dynamically in the bo
 * **Control Path Lines**: Drawn as bezier paths connecting controllers to hypervisors.
 * **Storage Data Paths**: Visualizes dedicated replication links between active OSDs.
 * **Active Overlay Tunnels**: Automatically shifts coloring and protocol names (Geneve vs. VXLAN) based on the active network configuration.
+
+---
+
+## 4. Version & Compliance Reference Manifest
+
+The **Check for Updates** header button opens a read-only reference panel (`#update-modal-overlay`) driven by a JSON manifest, loaded in priority order by `loadLocalManifest()`:
+1. An embedded `<script id="version-manifest">` tag, present in the standalone build whenever `bundle.py` was last run with `data/versions.json` on disk.
+2. A same-origin `fetch('./data/versions.json')` — works for the modular dev build served over `http://`, fails closed (silently) under `file://`.
+3. `EMBEDDED_MANIFEST`, a hardcoded fallback constant in `js/app.js`.
+
+The panel's "Check Online for Updates" button is the *only* network call this tool ever makes, and only fires on that explicit click — never automatically or on a timer, preserving the dark-site/offline guarantee. See [check_for_updates.py](file:///g:/My%20Drive/AntiGravity/Openstack/check_for_updates.py) for the scheduled/offline-refresh counterpart.

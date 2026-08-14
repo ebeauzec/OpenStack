@@ -7,6 +7,7 @@ An interactive web-based wizard designed for system architects and cloud enginee
 ## 🚀 Key Features
 
 * **Interactive Configuration Wizard**: Step-by-step sizing for compute workloads, Ceph storage backends, virtual networking subnets, Kubernetes (OpenShift) integrations, and security controls.
+* **Broad Storage Backend Support**: Ceph RBD, NetApp ONTAP, Dell EMC PowerFlex, Pure Storage FlashArray, HPE Alletra/Primera/3PAR, Dell PowerStore/PowerMax, and VAST Data (Cinder block + Manila NFS) as selectable Cinder/Manila backends, each with real upstream driver names, protocols, and ports.
 * **Real-time Capacity Sizing Engine**: 
   - Compute & Hypervisor limits (vCPUs, RAM, Local Disk).
   - Dynamic CPU/RAM overcommit evaluation.
@@ -14,11 +15,12 @@ An interactive web-based wizard designed for system architects and cloud enginee
   - HA buffer planning.
 * **Live Logical Topology Diagram**: A dynamic, responsive SVG-based topology mapping control path, active data path, and logical network tunnels in real time.
 * **Sovereign Cloud Compliance Integration**: Validates configs against Middle East sovereign compliance standards, including:
-  - **NCA CSCC** (National Cybersecurity Authority Cybersecurity Controls - Saudi Arabia).
-  - **DESC CSP** (Dubai Electronic Security Center Cloud Security Provider Regulation).
+  - **NCA CCC** (National Cybersecurity Authority Cloud Cybersecurity Controls, CCC-2:2024 - Saudi Arabia).
+  - **DESC CSP** (Dubai Electronic Security Center Cloud Security Provider Regulation, Information Security Regulation v3.0).
 * **Save/Load State**: Export current configuration inputs to a `.json` file and reload them instantly to continue sizing.
 * **Automated Exporters**: Generates high-level (HLD) and low-level (LLD) parameters for Glance, Nova, Neutron, Cinder, Manila, Ceph, Juju, SIEM, Ansible, and Kubernetes.
 * **Offline Compilability**: Packaged into a single, fully-inlined, standalone HTML page for air-gapped secure enterprise zones.
+* **Check for Updates**: An in-app, user-triggered reference panel (never a background/scheduled network call from inside the tool itself) showing bundled OpenStack release, Red Hat OpenStack, and compliance-standard version data, with an optional online refresh. For dark-site environments, the companion [check_for_updates.py](file:///g:/My%20Drive/AntiGravity/Openstack/check_for_updates.py) script refreshes `data/versions.json` on demand or on a schedule (cron / Task Scheduler) from a machine with internet access.
 
 ---
 
@@ -27,7 +29,7 @@ An interactive web-based wizard designed for system architects and cloud enginee
 To explore specific architecture and calculation topics in detail, see the structured guides in the `docs/` directory:
 * 🧮 **[Sizing & Capacity Engine](file:///g:/My%20Drive/AntiGravity/Openstack/docs/sizing_engine.md)**: Deep dive into virtual resource demands, overcommit node capacity equations, Ceph OSD count math, and network bandwidth calculations.
 * 🏗️ **[Software Architecture & SVG Pipeline](file:///g:/My%20Drive/AntiGravity/Openstack/docs/architecture.md)**: Details on the glassmorphic design system (CSS), state synchronization flow (JS), and dynamic vector rendering of logical network tunnels.
-* 🛡️ **[Sovereign Compliance & Validation Engine](file:///g:/My%20Drive/AntiGravity/Openstack/docs/compliance.md)**: In-depth criteria for NCA CSCC (Saudi Arabia) and DESC CSP (Dubai) checklists, and real-time overcommit warning bounds.
+* 🛡️ **[Sovereign Compliance & Validation Engine](file:///g:/My%20Drive/AntiGravity/Openstack/docs/compliance.md)**: In-depth criteria for NCA CCC (Saudi Arabia) and DESC CSP (Dubai) checklists, and real-time overcommit warning bounds.
 * 🚀 **[Production Deployment & Setup Guides](file:///g:/My%20Drive/AntiGravity/Openstack/docs/deployment.md)**: Step-by-step installation guidelines for Kolla-Ansible, Canonical Charmed OpenStack, and Red Hat OpenStack Services on OpenShift (RHOSO) 18.0.
 
 ---
@@ -39,7 +41,9 @@ To explore specific architecture and calculation topics in detail, see the struc
 * **[js/app.js](file:///g:/My%20Drive/AntiGravity/Openstack/js/app.js)**: State coordinator, event handlers, Greenfield reset logic, and DOM sync managers.
 * **[js/calculator.js](file:///g:/My%20Drive/AntiGravity/Openstack/js/calculator.js)**: Sizing logic for compute nodes, Ceph storage pools, and IP allocations.
 * **[js/templates.js](file:///g:/My%20Drive/AntiGravity/Openstack/js/templates.js)**: Generates detailed structural configuration parameters and documentation for deployment tools.
-* **[bundle.py](file:///g:/My%20Drive/AntiGravity/Openstack/bundle.py)**: Python compilation script to inline all styles and scripts.
+* **[bundle.py](file:///g:/My%20Drive/AntiGravity/Openstack/bundle.py)**: Python compilation script to inline all styles, scripts, and the version manifest.
+* **[data/versions.json](file:///g:/My%20Drive/AntiGravity/Openstack/data/versions.json)**: Version/compliance/storage-driver reference manifest, shown by the "Check for Updates" panel.
+* **[check_for_updates.py](file:///g:/My%20Drive/AntiGravity/Openstack/check_for_updates.py)**: Companion script to refresh `data/versions.json` from a machine with internet access, on demand or on a schedule.
 
 ---
 
@@ -68,6 +72,10 @@ This builds [openstack_design_tool_standalone.html](file:///g:/My%20Drive/AntiGr
 ### 3. Save & Load Configuration
 - Click **Save Config** in the header to download a JSON file of your current configuration parameters.
 - Click **Load Config** in the header and select your JSON config file to restore the session.
+
+### 4. Check for Updates
+- Click **Check for Updates** in the header to view the bundled OpenStack/RHOSP/compliance/storage-driver reference data and, optionally, fetch a fresher copy from the online manifest (only when you click "Check Online for Updates" — the tool never does this automatically).
+- For dark-site environments, run `python check_for_updates.py` on a machine with internet access to refresh `data/versions.json`, then copy that file into the air-gapped environment (or re-run `python bundle.py` to bake it into the standalone build). See the script's header comment for Task Scheduler / cron examples to run it on a recurring cadence.
 
 ---
 

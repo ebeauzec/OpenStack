@@ -27,7 +27,7 @@ const state = {
   inputs: {
     projectName: 'CSP Cloud Production-West',
     openstackDistro: 'kolla',
-    openstackVersion: '2024.1',
+    openstackVersion: '2026.1',
     cspScale: 'medium',
     industry: 'financial',
     compliance: ['soc2', 'pci-dss'],
@@ -67,6 +67,17 @@ const state = {
     netappCompression: 'true',
     emcIp: '10.10.30.60',
     emcPool: 'sp_gold_cinder',
+    pureIp: '10.10.30.80',
+    pureProto: 'iscsi',
+    hpeIp: '10.10.30.90',
+    hpePlatform: 'primera_alletra',
+    hpeProto: 'fc',
+    dellpsIp: '10.10.30.95',
+    dellpsPlatform: 'powerstore',
+    dellpsProto: 'iscsi',
+    vastIp: '10.10.30.110',
+    vastVippool: 'cinder-vip-pool',
+    vastRootExport: 'manila',
     enableCinderBackup: 'false',
     cinderBackupTarget: 'storagegrid',
     enableBarbican: false,
@@ -131,12 +142,70 @@ const state = {
     ceph: {},
     network: {}
   },
-  currentTab: 'proposal_design'
+  currentTab: 'proposal_design',
+  manifest: null,
+  manifestSource: 'bundled'
 };
 
 // Greenfield Defaults Backup
 const defaultInputs = JSON.parse(JSON.stringify(state.inputs));
- 
+
+// Bundled version/compliance reference manifest (baked in for the offline standalone build;
+// the modular dev build overwrites this from data/versions.json on load if reachable).
+// This is DATA ONLY -- never executed as code, whether loaded locally or fetched from MANIFEST_URL.
+const EMBEDDED_MANIFEST = {
+  manifestVersion: 1,
+  generatedAt: '2026-08-14T00:00:00Z',
+  sourceNote: 'Curated snapshot, web-verified as of 2026-08-14.',
+  openstack: {
+    latest: '2026.1',
+    releases: [
+      { value: '2026.1', codename: 'Gazpacho', slurp: true, releaseDate: '2026-04-01', status: 'current' },
+      { value: '2025.2', codename: 'Flamingo', slurp: false, releaseDate: '2025-10-01', status: 'supported' },
+      { value: '2025.1', codename: 'Epoxy', slurp: true, releaseDate: '2025-04-02', status: 'supported' },
+      { value: '2024.2', codename: 'Dalmatian', slurp: false, releaseDate: '2024-10-02', status: 'supported' },
+      { value: '2024.1', codename: 'Caracal', slurp: true, releaseDate: '2024-04-03', status: 'supported' },
+      { value: '2023.2', codename: 'Bobcat', slurp: false, releaseDate: '2023-10-04', status: 'eol-soon' },
+      { value: '2023.1', codename: 'Antelope', slurp: true, releaseDate: '2023-03-22', status: 'eol-soon' },
+      { value: 'zed', codename: 'Zed', slurp: false, releaseDate: '2022-10-05', status: 'eol' },
+      { value: 'yoga', codename: 'Yoga', slurp: false, releaseDate: '2022-03-30', status: 'eol' }
+    ]
+  },
+  redhat: {
+    current: '18.0',
+    options: [
+      { value: '18.0', label: 'RHOSO 18.0', status: 'current' },
+      { value: '17.1', label: 'RHOSP 17.1 (Classic)', status: 'deprecated', deprecatedDate: '2027-09-22' },
+      { value: '16.2', label: 'RHOSP 16.2 (Classic)', status: 'deprecated', deprecatedDate: '2027-04-30' },
+      { value: '13.0', label: 'RHOSP 13.0', status: 'eol', eolDate: '2023-06-27' }
+    ]
+  },
+  adjacentProjects: {
+    kollaAnsible: 'Actively maintained, tracks the upstream release train.',
+    canonicalCharmedOpenstack: 'Actively maintained (classic charms); Canonical steers new small/edge deployments toward Sunbeam (K8s-native) instead.',
+    ceph: 'Current stable: Tentacle (20.2.x). Prior: Squid (19.x), Reef (18.x).',
+    neutronSdn: 'ML2/OVN is the recommended default; ML2/OVS is legacy.'
+  },
+  compliance: {
+    pciDss: 'v4.0.1 current. v5.0 in development, no release date.',
+    saudiNca: 'Correct framework name is NCA CCC (Cloud Cybersecurity Controls), current CCC-2:2024. "CSCC" is a different, non-cloud-specific framework.',
+    dubaiDesc: 'DESC CSP Security Standard, layered on Information Security Regulation (ISR) v3.0.',
+    uaeNesa: 'UAE IAR/IAS v2 (Sept 2025), administered by TDRA / Cyber Security Council. "NESA IAS" remains the common colloquial label.',
+    hipaa: 'Encryption/MFA mandate is a proposed NPRM, not yet final as of 2026-08.',
+    gdpr: 'Core text unchanged; EU Data Act Ch. VII (effective 2025-09-12) adds binding data-sovereignty/egress provisions worth citing alongside GDPR.'
+  },
+  storageVendors: {
+    pure: 'Pure Storage FlashArray -- Cinder: iSCSI/FC/NVMe-RoCE/NVMe-TCP. No official Manila driver (FlashBlade only).',
+    hpe: 'HPE Alletra/Primera/3PAR -- Cinder: FC/iSCSI via WSAPI (443 Primera/Alletra, 8080 3PAR). No official Manila driver confirmed.',
+    dellps: 'Dell PowerStore/PowerMax -- Cinder: iSCSI/FC/NVMe-TCP. PowerMax managed via Unisphere (8443). No official Manila driver confirmed.',
+    vast: 'VAST Data -- Cinder (NVMe-TCP) AND Manila (NFS) both officially supported from one VMS management plane.'
+  }
+};
+
+// URL the in-app "Check for Updates" button fetches for a fresher manifest. Only ever
+// used for an explicit, user-triggered fetch (never automatic/background) -- see btn-fetch-updates.
+const MANIFEST_URL = 'https://raw.githubusercontent.com/ebeauzec/OpenStack/main/data/versions.json';
+
 // DOM Elements
 const elements = {
   stepperItems: document.querySelectorAll('.step-item'),
@@ -146,7 +215,13 @@ const elements = {
   btnReset: document.getElementById('btn-reset'),
   toastContainer: document.getElementById('toast-container'),
   toastText: document.getElementById('toast-text'),
-  
+  btnCheckUpdates: document.getElementById('btn-check-updates'),
+  updateModalOverlay: document.getElementById('update-modal-overlay'),
+  updateModalClose: document.getElementById('update-modal-close'),
+  updateModalBody: document.getElementById('update-modal-body'),
+  updateModalStatus: document.getElementById('update-modal-status'),
+  btnFetchUpdates: document.getElementById('btn-fetch-updates'),
+
   // Results Tab Buttons & Outputs
   tabButtons: document.querySelectorAll('.tab-btn'),
   displayFilename: document.getElementById('display-filename'),
@@ -164,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateManilaDiagram();
   runCalculations();
   updateUI();
+  loadLocalManifest();
 });
 
 function toggleDynamicViews() {
@@ -268,32 +344,32 @@ function updateVersionOptions() {
 
   const versionsMap = {
     kolla: [
-      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP, Current)' },
       { value: '2025.2', label: '2025.2 (Flamingo)' },
       { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
       { value: '2024.2', label: '2024.2 (Dalmatian)' },
       { value: '2024.1', label: '2024.1 (Caracal - SLURP)' },
       { value: '2023.2', label: '2023.2 (Bobcat)' },
-      { value: '2023.1', label: '2023.1 (Antelope)' },
-      { value: 'zed', label: 'Zed' },
-      { value: 'yoga', label: 'Yoga' }
+      { value: '2023.1', label: '2023.1 (Antelope - SLURP)' },
+      { value: 'zed', label: 'Zed (EOL)' },
+      { value: 'yoga', label: 'Yoga (EOL)' }
     ],
     juju: [
-      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP, Current)' },
       { value: '2025.2', label: '2025.2 (Flamingo)' },
       { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
       { value: '2024.2', label: '2024.2 (Dalmatian)' },
       { value: '2024.1', label: '2024.1 (Caracal - SLURP)' },
       { value: '2023.2', label: '2023.2 (Bobcat)' },
-      { value: '2023.1', label: '2023.1 (Antelope)' },
-      { value: 'zed', label: 'Zed' },
-      { value: 'yoga', label: 'Yoga' }
+      { value: '2023.1', label: '2023.1 (Antelope - SLURP)' },
+      { value: 'zed', label: 'Zed (EOL)' },
+      { value: 'yoga', label: 'Yoga (EOL)' }
     ],
     rhosp: [
-      { value: '18.0', label: 'RHOSO 18.0 (OpenStack Services on OpenShift - Latest)' },
-      { value: '17.1', label: 'RHOSP 17.1 (Classic Director-based)' },
-      { value: '16.2', label: 'RHOSP 16.2 (Classic)' },
-      { value: '13.0', label: 'RHOSP 13.0 (Legacy LTS)' }
+      { value: '18.0', label: 'RHOSO 18.0 (OpenStack Services on OpenShift - Current)' },
+      { value: '17.1', label: 'RHOSP 17.1 (Classic Director-based, deprecated 2027-09-22)' },
+      { value: '16.2', label: 'RHOSP 16.2 (Classic, deprecated 2027-04-30)' },
+      { value: '13.0', label: 'RHOSP 13.0 (EOL - unsupported since 2023-06-27)' }
     ]
   };
 
@@ -350,6 +426,28 @@ function resetGreenfield() {
   showToast("Configuration reset to Greenfield default parameters.");
 }
 
+const CINDER_BACKEND_OPTS_IDS = {
+  ceph: 'cinder-opts-ceph',
+  netapp: 'cinder-opts-netapp',
+  emc: 'cinder-opts-emc',
+  pure: 'cinder-opts-pure',
+  hpe: 'cinder-opts-hpe',
+  dellps: 'cinder-opts-dellps',
+  vast: 'cinder-opts-vast'
+};
+
+function updateCinderBackendOptsVisibility(activeBackends) {
+  Object.entries(CINDER_BACKEND_OPTS_IDS).forEach(([backend, elId]) => {
+    const el = document.getElementById(elId);
+    if (el) el.style.display = activeBackends.includes(backend) ? 'block' : 'none';
+  });
+}
+
+function updateManilaBackendOptsVisibility(activeBackends) {
+  const vastOpts = document.getElementById('manila-opts-vast');
+  if (vastOpts) vastOpts.style.display = activeBackends.includes('vast') ? 'block' : 'none';
+}
+
 function syncDOMFromState() {
   // 1. Standard inputs (text, number, selects, checkboxes)
   for (const [key, val] of Object.entries(state.inputs)) {
@@ -388,9 +486,7 @@ function syncDOMFromState() {
     card.classList.toggle('selected', isSelected);
   });
   // Toggle option groups
-  document.getElementById('cinder-opts-ceph').style.display = cinderBackends.includes('ceph') ? 'block' : 'none';
-  document.getElementById('cinder-opts-netapp').style.display = cinderBackends.includes('netapp') ? 'block' : 'none';
-  document.getElementById('cinder-opts-emc').style.display = cinderBackends.includes('emc') ? 'block' : 'none';
+  updateCinderBackendOptsVisibility(cinderBackends);
 
   // 4. Multi-select Manila Backend cards
   const manilaBackends = state.inputs.manilaBackends || [];
@@ -398,6 +494,7 @@ function syncDOMFromState() {
     const isSelected = manilaBackends.includes(card.getAttribute('data-manila-backend') || card.dataset.manilaBackend);
     card.classList.toggle('selected', isSelected);
   });
+  updateManilaBackendOptsVisibility(manilaBackends);
 
   // 5. Manila DHSS cards
   const manilaDhss = state.inputs.manilaDhss;
@@ -443,7 +540,23 @@ function setupEventListeners() {
       resetGreenfield();
     });
   }
- 
+
+  // Version & Compliance Reference / Check for Updates
+  if (elements.btnCheckUpdates) {
+    elements.btnCheckUpdates.addEventListener('click', openUpdateModal);
+  }
+  if (elements.updateModalClose) {
+    elements.updateModalClose.addEventListener('click', closeUpdateModal);
+  }
+  if (elements.updateModalOverlay) {
+    elements.updateModalOverlay.addEventListener('click', (e) => {
+      if (e.target === elements.updateModalOverlay) closeUpdateModal();
+    });
+  }
+  if (elements.btnFetchUpdates) {
+    elements.btnFetchUpdates.addEventListener('click', checkForUpdatesOnline);
+  }
+
   // Dynamic Inputs Watcher
   const inputsToWatch = [
     'projectName', 'openstackDistro', 'openstackVersion', 'cspScale', 'industry', 'vmCount', 'vmVcpus', 'vmRam', 'vmDisk',
@@ -452,7 +565,10 @@ function setupEventListeners() {
     'enableK8s', 'k8sMasterCount', 'k8sWorkerCount', 'k8sMasterVcpus', 'k8sMasterRam',
     'k8sWorkerVcpus', 'k8sWorkerRam', 'k8sWorkerDisk', 'k8sCni', 'k8sCsi', 'enableVelero',
     'cinderCapacityTb', 'cinderNetAppIp', 'cinderNetAppSvm', 'cinderNetAppProto', 'netappDedup',
-    'cinderEmcIp', 'cinderEmcPool', 'enableCinderBackup', 'cinderBackupTarget',
+    'cinderEmcIp', 'cinderEmcPool',
+    'pureIp', 'pureProto', 'hpeIp', 'hpePlatform', 'hpeProto', 'dellpsIp', 'dellpsPlatform', 'dellpsProto',
+    'vastIp', 'vastVippool', 'vastRootExport',
+    'enableCinderBackup', 'cinderBackupTarget',
     'enableBarbican', 'barbicanBackend', 'enableCinderReplication', 'cinderReplTarget', 'cinderReplMode',
     'cinderMultiAttach', 'cinderQosEnable', 'cinderQosMaxIops', 'cinderQosMaxBps', 'manilaCapacityTb',
     'enableManilaReplication', 'osdSizeTb', 'osdPerNode',
@@ -554,7 +670,7 @@ function setupEventListeners() {
       } else if (selected === 'sovereign') {
         setComplianceCheckbox('nca_cscc', true);
         setComplianceCheckbox('desc_csp', true);
-        state.inputs.cpuOvercommit = 2; // NCA CSCC default
+        state.inputs.cpuOvercommit = 2; // NCA CCC-2:2024 default
         state.inputs.ramOvercommit = 1; // Strict
         state.inputs.manilaDhss = 'true'; // DESC mandated
         
@@ -601,12 +717,10 @@ function setupEventListeners() {
         activeBackends.push(c.dataset.backend);
       });
       state.inputs.cinderBackends = activeBackends;
-      
+
       // Hide/show option groups
-      document.getElementById('cinder-opts-ceph').style.display = activeBackends.includes('ceph') ? 'block' : 'none';
-      document.getElementById('cinder-opts-netapp').style.display = activeBackends.includes('netapp') ? 'block' : 'none';
-      document.getElementById('cinder-opts-emc').style.display = activeBackends.includes('emc') ? 'block' : 'none';
- 
+      updateCinderBackendOptsVisibility(activeBackends);
+
       runCalculations();
       updateCinderDiagram();
       updateUI();
@@ -633,6 +747,7 @@ function setupEventListeners() {
         activeBackends.push(c.getAttribute('data-manila-backend'));
       });
       state.inputs.manilaBackends = activeBackends;
+      updateManilaBackendOptsVisibility(activeBackends);
 
       validateManilaCompat();
       runCalculations();
@@ -1038,6 +1153,40 @@ function runLiveValidation() {
   }
 }
 
+// Protocol/port label helpers for the newer Cinder array backends (Pure, HPE, Dell PowerStore/PowerMax, VAST)
+function getPureProtoLabel() {
+  const map = { iscsi: 'iSCSI', fc: 'Fibre Channel', 'nvme-roce': 'NVMe-oF/RoCE', 'nvme-tcp': 'NVMe-oF/TCP' };
+  return map[state.inputs.pureProto] || 'iSCSI';
+}
+function getPurePorts() {
+  const proto = state.inputs.pureProto;
+  const dataPort = proto === 'fc' ? 'FC Fabric (zoned)' : (proto.startsWith('nvme') ? '4420 (NVMe/TCP)' : '3260 (iSCSI)');
+  return `${dataPort}, 443 (REST)`;
+}
+function getHpeWsapiPort() {
+  return state.inputs.hpePlatform === '3par' ? 8080 : 443;
+}
+function getHpeProtoLabel() {
+  return state.inputs.hpeProto === 'iscsi' ? 'iSCSI' : 'Fibre Channel';
+}
+function getHpePorts() {
+  const dataPort = state.inputs.hpeProto === 'iscsi' ? '3260 (iSCSI)' : 'FC Fabric (zoned)';
+  return `${dataPort}, ${getHpeWsapiPort()} (WSAPI)`;
+}
+function getDellpsProtoLabel() {
+  const map = { iscsi: 'iSCSI', fc: 'Fibre Channel', 'nvme-tcp': 'NVMe-TCP' };
+  return map[state.inputs.dellpsProto] || 'iSCSI';
+}
+function getDellpsMgmtPort() {
+  return state.inputs.dellpsPlatform === 'powermax' ? { port: 8443, label: 'Unisphere' } : { port: 443, label: 'REST' };
+}
+function getDellpsPorts() {
+  const proto = state.inputs.dellpsProto;
+  const dataPort = proto === 'fc' ? 'FC Fabric (zoned)' : (proto === 'nvme-tcp' ? '4420 (NVMe/TCP)' : '3260 (iSCSI)');
+  const mgmt = getDellpsMgmtPort();
+  return `${dataPort}, ${mgmt.port} (${mgmt.label})`;
+}
+
 // Update UI fields and components based on calculations
 function updateUI() {
   // Step 2 (Compute) Outputs
@@ -1046,6 +1195,11 @@ function updateUI() {
   document.getElementById('calc-total-ram').innerText = `${comp.totalRamNeeded} GB`;
   document.getElementById('calc-nodes-cpu').innerText = comp.nodesForCpu;
   document.getElementById('calc-nodes-ram').innerText = comp.nodesForRam;
+  const rowNodesStorage = document.getElementById('row-nodes-storage');
+  if (rowNodesStorage) {
+    rowNodesStorage.style.display = comp.nodesForStorage > 0 ? 'flex' : 'none';
+    document.getElementById('calc-nodes-storage').innerText = comp.nodesForStorage;
+  }
   document.getElementById('calc-raw-nodes').innerText = comp.rawComputeNodes;
   document.getElementById('calc-final-nodes').innerText = `${comp.finalComputeNodes} Nodes`;
  
@@ -1054,17 +1208,29 @@ function updateUI() {
   const cinderBackendNames = {
     ceph: 'Ceph RBD',
     netapp: 'NetApp ONTAP',
-    emc: 'Dell EMC PowerFlex'
+    emc: 'Dell EMC PowerFlex',
+    pure: 'Pure Storage FlashArray',
+    hpe: state.inputs.hpePlatform === '3par' ? 'HPE 3PAR' : 'HPE Primera/Alletra',
+    dellps: state.inputs.dellpsPlatform === 'powermax' ? 'Dell PowerMax' : 'Dell PowerStore',
+    vast: 'VAST Data'
   };
   const cinderProtocols = {
     ceph: 'librbd (RADOS)',
     netapp: state.inputs.netappProto.toUpperCase(),
-    emc: 'SDC driver'
+    emc: 'SDC driver',
+    pure: getPureProtoLabel(),
+    hpe: getHpeProtoLabel(),
+    dellps: getDellpsProtoLabel(),
+    vast: 'NVMe-oF/TCP'
   };
   const cinderPorts = {
     ceph: '6789 (MON), 6800-7300 (OSDs)',
     netapp: state.inputs.netappProto === 'iscsi' ? '3260 (iSCSI), 443 (ONTAPI)' : '2049 (NFS), 443 (ONTAPI)',
-    emc: '7011 (SDC API), 443 (Gateway)'
+    emc: '7011 (SDC API), 443 (Gateway)',
+    pure: getPurePorts(),
+    hpe: getHpePorts(),
+    dellps: getDellpsPorts(),
+    vast: '4420 (NVMe/TCP data VIP), 443 (VMS REST)'
   };
   
   const selectedBackends = state.inputs.cinderBackends || ['ceph'];
@@ -1090,12 +1256,14 @@ function updateUI() {
   const manilaBackendNames = {
     cephfs_native: 'CephFS Native',
     cephfs_ganesha: 'CephFS NFS-Ganesha',
-    netapp: 'NetApp ONTAP'
+    netapp: 'NetApp ONTAP',
+    vast: 'VAST Data'
   };
   const manilaPorts = {
     cephfs_native: '6789 (MDS & OSDs)',
     cephfs_ganesha: '2049 (NFS)',
-    netapp: '2049 (NFS), 445 (CIFS)'
+    netapp: '2049 (NFS), 445 (CIFS)',
+    vast: '2049 (NFS), 443 (VMS REST)'
   };
   const selectedManila = state.inputs.manilaBackends || ['cephfs_native'];
   document.getElementById('calc-manila-backend').innerText = selectedManila.map(b => manilaBackendNames[b]).join(' + ');
@@ -1145,16 +1313,18 @@ function validateManilaCompat() {
   const warning = document.getElementById('manila-compat-warning');
   const selectedManila = state.inputs.manilaBackends || ['cephfs_native'];
   const hasCeph = selectedManila.some(b => b.startsWith('cephfs'));
+  const hasVast = selectedManila.includes('vast');
   const dhss = state.inputs.manilaDhss;
-  
-  // CephFS does NOT support DHSS = True natively
-  if (hasCeph && dhss === 'true') {
+
+  // CephFS and VAST's Manila driver (driver_handles_share_servers=False) do NOT support DHSS = True
+  if ((hasCeph || hasVast) && dhss === 'true') {
     warning.style.display = 'flex';
-    warning.querySelector('#manila-compat-warning-text').innerText = 'Warning: CephFS backend does not support DHSS=True. You must configure DHSS to False for CephFS shares, or switch to NetApp ONTAP.';
+    const offender = hasCeph && hasVast ? 'CephFS and VAST Data backends do' : (hasCeph ? 'CephFS backend does' : 'VAST Data backend does');
+    warning.querySelector('#manila-compat-warning-text').innerText = `Warning: the ${offender} not support DHSS=True. You must configure DHSS to False for these shares, or switch to NetApp ONTAP.`;
     elements.btnNext.disabled = true;
     return false;
   }
-  
+
   warning.style.display = 'none';
   elements.btnNext.disabled = false;
   return true;
@@ -1206,9 +1376,9 @@ function updateComplianceText() {
   } else if (ind === 'healthcare') {
     text += 'Healthcare mandates strict project networking isolation, encryption-at-rest for Cinder and Manila shares, and syslog forwarding of admin tokens.';
   } else if (ind === 'telecom') {
-    text += 'Telecom NFV dictates NESA High-Availability controls with link protection, separate data routing planes, and zero packet-drop tuning.';
+    text += 'Telecom NFV dictates NESA/UAE IAR-IAS v2 High-Availability controls with link protection, separate data routing planes, and zero packet-drop tuning.';
   } else if (ind === 'sovereign') {
-    text += 'Sovereign Government Cloud enforces Dubai DESC CSP and Saudi NCA CSCC directives. Data residency must remain local, 1:1 resource sizing is enforced, and encryption keys must be handled in-country.';
+    text += 'Sovereign Government Cloud enforces Dubai DESC CSP (ISR v3.0) and Saudi NCA CCC-2:2024 directives. Data residency must remain local, 1:1 resource sizing is enforced, and encryption keys must be handled in-country.';
   } else {
     text += 'Standard general purpose configurations apply.';
   }
@@ -1247,7 +1417,27 @@ function updateCinderDiagram() {
     protos.push('SDC (7011)');
     descs.push(`Parallel I/O lines to PowerFlex cluster (${state.inputs.emcIp}).`);
   }
- 
+  if (backends.includes('pure')) {
+    names.push('FlashArray');
+    protos.push(getPureProtoLabel() + ' (' + getPurePorts() + ')');
+    descs.push(`${getPureProtoLabel()} I/O to Pure Storage FlashArray (${state.inputs.pureIp}).`);
+  }
+  if (backends.includes('hpe')) {
+    names.push('HPE SAN Array');
+    protos.push(getHpeProtoLabel() + ' (' + getHpePorts() + ')');
+    descs.push(`${getHpeProtoLabel()} I/O to HPE array WSAPI (${state.inputs.hpeIp}).`);
+  }
+  if (backends.includes('dellps')) {
+    names.push(state.inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore');
+    protos.push(getDellpsProtoLabel() + ' (' + getDellpsPorts() + ')');
+    descs.push(`${getDellpsProtoLabel()} I/O to Dell ${state.inputs.dellpsPlatform === 'powermax' ? 'PowerMax (via Unisphere)' : 'PowerStore'} (${state.inputs.dellpsIp}).`);
+  }
+  if (backends.includes('vast')) {
+    names.push('VAST Cluster');
+    protos.push('NVMe-oF/TCP (VIP Pool)');
+    descs.push(`NVMe-oF/TCP to VAST VIP pool "${state.inputs.vastVippool}" (VMS: ${state.inputs.vastIp}).`);
+  }
+
   backendNodeTitle.innerText = names.join(' + ');
   backendNodeProto.innerText = protos.join(' | ');
   desc.innerHTML = '<strong>Data Flow:</strong> ' + descs.join(' ');
@@ -1300,6 +1490,12 @@ function updateManilaDiagram() {
       names.push('NetApp ONTAP Cluster');
       protos.push('NFS/CIFS (Shared SVM)');
       flows.push('Manila creates separate export paths on a single pre-existing ONTAP SVM.');
+    }
+    if (backends.includes('vast')) {
+      gwNodeDesc.innerText = 'Static NFS VIP Mount';
+      names.push('VAST Cluster');
+      protos.push('NFS (Port 2049)');
+      flows.push(`Manila exports "${state.inputs.vastRootExport}" from the VAST cluster's Element Store via NFS. DHSS=False only (no share-server VMs).`);
     }
 
     storageNodeTitle.innerText = names.join(' + ');
@@ -1491,8 +1687,166 @@ function buildTableHtml(rows) {
 function showToast(message) {
   elements.toastText.innerText = message;
   elements.toastContainer.style.display = 'block';
-  
+
   setTimeout(() => {
     elements.toastContainer.style.display = 'none';
   }, 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Version & Compliance Reference Manifest (Check for Updates)
+// ---------------------------------------------------------------------------
+// Best-effort local refresh, in priority order:
+//   1. An embedded <script id="version-manifest"> tag -- present in the standalone build
+//      whenever bundle.py was last run with a data/versions.json on disk (see bundle.py).
+//   2. A same-origin fetch of data/versions.json -- works for the modular dev build served
+//      over http://, but fails closed under file:// (the standalone build), which is expected.
+//   3. EMBEDDED_MANIFEST -- the final hardcoded fallback baked into this file.
+async function loadLocalManifest() {
+  state.manifest = EMBEDDED_MANIFEST;
+  state.manifestSource = 'bundled';
+
+  const embeddedTag = document.getElementById('version-manifest');
+  if (embeddedTag) {
+    try {
+      const data = JSON.parse(embeddedTag.textContent);
+      if (data && data.manifestVersion) {
+        state.manifest = data;
+        state.manifestSource = 'bundled (data/versions.json at build time)';
+        return;
+      }
+    } catch (err) {
+      // Malformed embedded manifest; fall through to the fetch/hardcoded fallback below.
+    }
+  }
+
+  try {
+    const res = await fetch('./data/versions.json', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.manifestVersion) {
+        state.manifest = data;
+        state.manifestSource = 'local file';
+      }
+    }
+  } catch (err) {
+    // Expected under file:// (standalone build) or when data/versions.json isn't served. Silent.
+  }
+}
+
+function statusClass(status) {
+  if (status === 'current' || status === 'supported') return 'status-current';
+  if (status === 'eol' || status === 'eol-soon' || status === 'deprecated') return 'status-eol';
+  return '';
+}
+
+// The richer data/versions.json manifest nests fields like {status, notes, source} per entry,
+// while the hardcoded EMBEDDED_MANIFEST fallback (and a freshly fetched online manifest) may use
+// plain strings instead. Handle both shapes rather than assuming one.
+function formatManifestEntry(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    return Object.entries(v)
+      .filter(([k]) => k !== 'source')
+      .map(([, val]) => val)
+      .join(' — ');
+  }
+  return String(v);
+}
+
+function renderManifestModal() {
+  const m = state.manifest || EMBEDDED_MANIFEST;
+  const body = elements.updateModalBody;
+  if (!body) return;
+
+  const osRows = (m.openstack.releases || []).map(r =>
+    `<tr><td>${r.value}</td><td>${r.codename || ''}</td><td>${r.slurp ? 'Yes' : 'No'}</td><td>${r.releaseDate || ''}</td><td class="${statusClass(r.status)}">${r.status || ''}</td></tr>`
+  ).join('');
+
+  const rhosoRows = (m.redhat.options || []).map(r =>
+    `<tr><td>${r.label}</td><td class="${statusClass(r.status)}">${r.status}${r.deprecatedDate ? ' (' + r.deprecatedDate + ')' : ''}${r.eolDate ? ' (' + r.eolDate + ')' : ''}</td></tr>`
+  ).join('');
+
+  const compliance = m.compliance || {};
+  const adjacent = m.adjacentProjects || {};
+  const vendors = m.storageVendors || {};
+
+  body.innerHTML = `
+    <h4>OpenStack Release Train</h4>
+    <table>
+      <tr><th>Version</th><th>Codename</th><th>SLURP</th><th>Released</th><th>Status</th></tr>
+      ${osRows}
+    </table>
+
+    <h4>Red Hat OpenStack</h4>
+    <table>
+      <tr><th>Option</th><th>Status</th></tr>
+      ${rhosoRows}
+    </table>
+
+    <h4>Adjacent Projects</h4>
+    <ul style="padding-left:1.1rem;">
+      ${Object.values(adjacent).map(v => `<li>${formatManifestEntry(v)}</li>`).join('')}
+    </ul>
+
+    <h4>Compliance Standards</h4>
+    <ul style="padding-left:1.1rem;">
+      ${Object.values(compliance).map(v => `<li>${formatManifestEntry(v)}</li>`).join('')}
+    </ul>
+
+    <h4>Storage Vendor Drivers</h4>
+    <ul style="padding-left:1.1rem;">
+      ${Object.values(vendors).map(v => `<li>${formatManifestEntry(v)}</li>`).join('')}
+    </ul>
+  `;
+
+  const genDate = m.generatedAt ? new Date(m.generatedAt).toISOString().slice(0, 10) : 'unknown';
+  elements.updateModalStatus.innerText = `Showing ${state.manifestSource} data, generated ${genDate}.`;
+}
+
+function openUpdateModal() {
+  renderManifestModal();
+  elements.updateModalOverlay.style.display = 'flex';
+}
+
+function closeUpdateModal() {
+  elements.updateModalOverlay.style.display = 'none';
+}
+
+// Explicit, user-triggered online check -- never runs automatically or on a schedule.
+// For a truly air-gapped environment, this fetch will simply fail closed (see catch below);
+// use check_for_updates.py from a machine with internet access to refresh data/versions.json instead.
+async function checkForUpdatesOnline() {
+  elements.updateModalStatus.innerText = 'Checking online for updates...';
+  elements.btnFetchUpdates.disabled = true;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(MANIFEST_URL, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || !data.manifestVersion) throw new Error('Unrecognized manifest format');
+
+    const wasLatest = (state.manifest || EMBEDDED_MANIFEST).openstack.latest;
+    state.manifest = data;
+    state.manifestSource = 'online';
+    renderManifestModal();
+
+    if (data.openstack && data.openstack.latest && data.openstack.latest !== wasLatest) {
+      showToast(`Updated: latest OpenStack release is now ${data.openstack.latest}.`);
+    } else {
+      showToast('Reference data refreshed from online source.');
+    }
+  } catch (err) {
+    clearTimeout(timeout);
+    const genDate = (state.manifest || EMBEDDED_MANIFEST).generatedAt;
+    const dateStr = genDate ? new Date(genDate).toISOString().slice(0, 10) : 'unknown';
+    elements.updateModalStatus.innerText = `Could not reach update source (offline, or ${MANIFEST_URL} not yet published) -- showing ${state.manifestSource} data from ${dateStr}. Run check_for_updates.py from a machine with internet access to refresh this offline.`;
+  } finally {
+    elements.btnFetchUpdates.disabled = false;
+  }
 }

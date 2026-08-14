@@ -1,13 +1,22 @@
+import json
 import os
 import re
 
 def bundle_project():
     workspace_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     # 1. Read CSS
     css_path = os.path.join(workspace_dir, "style.css")
     with open(css_path, "r", encoding="utf-8") as f:
         css_content = f.read()
+
+    # 1b. Read the version/compliance reference manifest (optional -- app.js falls back
+    # to its own EMBEDDED_MANIFEST constant if data/versions.json is missing).
+    manifest_path = os.path.join(workspace_dir, "data", "versions.json")
+    manifest_json = None
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest_json = f.read()
 
     # 2. Read JS Files
     calc_path = os.path.join(workspace_dir, "js", "calculator.js")
@@ -57,8 +66,18 @@ def bundle_project():
     # Use simple replace to avoid regex escape errors
     index_content = index_content.replace('<link rel="stylesheet" href="style.css">', style_replacement)
 
-    # 7. Replace script link with inline script
-    script_replacement = f'<script type="text/javascript">\n{combined_js}\n</script>'
+    # 7. Replace script link with inline script (plus the embedded version manifest, if present,
+    # so the standalone build's "Check for Updates" modal shows fresher-than-hardcoded baseline
+    # data without needing app.js's EMBEDDED_MANIFEST constant hand-edited on every refresh).
+    manifest_script = ''
+    if manifest_json is not None:
+        # Validate it's parseable JSON before embedding, and escape "</script" to avoid
+        # prematurely closing the tag if the manifest content ever contains that string.
+        json.loads(manifest_json)
+        safe_manifest_json = manifest_json.replace("</script", "<\\/script")
+        manifest_script = f'<script type="application/json" id="version-manifest">\n{safe_manifest_json}\n</script>\n'
+
+    script_replacement = f'{manifest_script}<script type="text/javascript">\n{combined_js}\n</script>'
     index_content = index_content.replace('<script type="module" src="js/app.js"></script>', script_replacement)
 
     # 8. Write standalone file

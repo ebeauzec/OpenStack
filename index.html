@@ -78,6 +78,10 @@
               Load Config
             </button>
             <input type="file" id="load-config-input" accept=".json" style="display: none;">
+            <button class="btn btn-secondary" id="btn-check-updates" title="View bundled version/compliance reference data and check online for updates">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Check for Updates
+            </button>
             <button class="btn btn-secondary" id="btn-prev" disabled>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
               Back
@@ -108,7 +112,7 @@
                   <label for="openstackDistro">OpenStack Distribution</label>
                   <select id="openstackDistro">
                     <option value="kolla" selected>Kolla-Ansible (Vanilla / Containerized)</option>
-                    <option value="juju">Canonical Charmed OpenStack (Juju)</option>
+                    <option value="juju">Canonical Charmed OpenStack (Juju classic charms — see Sunbeam note in Deployment Guide)</option>
                     <option value="rhosp">Red Hat OpenStack Services on OpenShift (RHOSO / RHOSP)</option>
                   </select>
                 </div>
@@ -152,7 +156,7 @@
                   </label>
                   <label class="checkbox-tile">
                     <input type="checkbox" name="compliance" value="pci-dss" checked>
-                    <span>PCI-DSS v4.0</span>
+                    <span>PCI-DSS v4.0.1</span>
                   </label>
                   <label class="checkbox-tile">
                     <input type="checkbox" name="compliance" value="hipaa">
@@ -164,7 +168,7 @@
                   </label>
                   <label class="checkbox-tile">
                     <input type="checkbox" name="compliance" value="nca_cscc">
-                    <span>Saudi NCA CSCC</span>
+                    <span>Saudi NCA CCC</span>
                   </label>
                   <label class="checkbox-tile">
                     <input type="checkbox" name="compliance" value="desc_csp">
@@ -462,6 +466,10 @@
                   <span class="label">Nodes Required for RAM</span>
                   <span class="value" id="calc-nodes-ram">25</span>
                 </div>
+                <div class="summary-item" id="row-nodes-storage" style="display:none;">
+                  <span class="label">Nodes Required for Local Disk</span>
+                  <span class="value" id="calc-nodes-storage">0</span>
+                </div>
                 <div class="summary-item">
                   <span class="label">Raw Compute Nodes</span>
                   <span class="value" id="calc-raw-nodes">25</span>
@@ -516,6 +524,38 @@
                   </div>
                   <div class="backend-desc">Software-defined elastic block platform with massive scalability and dedicated SDC driver.</div>
                 </div>
+
+                <div class="backend-card" data-backend="pure">
+                  <div class="backend-title">
+                    <span>Pure Storage FlashArray</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">All-flash array with always-on dedup/compression. Official upstream driver over iSCSI, FC, or NVMe.</div>
+                </div>
+
+                <div class="backend-card" data-backend="hpe">
+                  <div class="backend-title">
+                    <span>HPE Alletra / Primera / 3PAR</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Enterprise SAN over FC or iSCSI via the array's WSAPI. Single driver family spans the 3PAR-to-Alletra MP lineage.</div>
+                </div>
+
+                <div class="backend-card" data-backend="dellps">
+                  <div class="backend-title">
+                    <span>Dell PowerStore / PowerMax</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Traditional unified/mainframe-class Dell SAN, distinct from PowerFlex. iSCSI, FC, or NVMe-TCP.</div>
+                </div>
+
+                <div class="backend-card" data-backend="vast">
+                  <div class="backend-title">
+                    <span>VAST Data</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">NVMe-TCP block volumes off VAST's Universal Storage platform, managed via the VMS API.</div>
+                </div>
               </div>
 
               <!-- Backend specific options -->
@@ -565,6 +605,90 @@
                       <label for="cinderEmcPool">PowerFlex Storage Pool</label>
                       <input type="text" id="cinderEmcPool" value="sp_gold_cinder">
                     </div>
+                  </div>
+                </div>
+
+                <div id="cinder-opts-pure" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="pureIp">FlashArray Management IP</label>
+                      <input type="text" id="pureIp" value="10.10.30.80">
+                    </div>
+                    <div class="form-group">
+                      <label for="pureProto">Storage Protocol</label>
+                      <select id="pureProto">
+                        <option value="iscsi" selected>iSCSI (PureISCSIDriver)</option>
+                        <option value="fc">Fibre Channel (PureFCDriver)</option>
+                        <option value="nvme-roce">NVMe-oF / RoCE (PureNVMEDriver)</option>
+                        <option value="nvme-tcp">NVMe-oF / TCP (PureNVMEDriver)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="ui-info-block">
+                    Dedup/compression are always-on at the array level (not driver-toggled). No official Manila driver exists for FlashArray &mdash; file workloads require a separate FlashBlade array.
+                  </div>
+                </div>
+
+                <div id="cinder-opts-hpe" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="hpeIp">Array WSAPI IP / Hostname</label>
+                      <input type="text" id="hpeIp" value="10.10.30.90">
+                    </div>
+                    <div class="form-group">
+                      <label for="hpePlatform">Array Platform</label>
+                      <select id="hpePlatform">
+                        <option value="primera_alletra" selected>Primera / Alletra 9k / Alletra MP (WSAPI 443)</option>
+                        <option value="3par">3PAR (WSAPI 8080)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="hpeProto">Storage Protocol</label>
+                    <select id="hpeProto">
+                      <option value="fc" selected>Fibre Channel (HPE3PARFCDriver)</option>
+                      <option value="iscsi">iSCSI (HPE3PARISCSIDriver)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="cinder-opts-dellps" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="dellpsIp">Management IP (REST Gateway / Unisphere)</label>
+                      <input type="text" id="dellpsIp" value="10.10.30.95">
+                    </div>
+                    <div class="form-group">
+                      <label for="dellpsPlatform">Array Platform</label>
+                      <select id="dellpsPlatform">
+                        <option value="powerstore" selected>PowerStore (direct REST, port 443)</option>
+                        <option value="powermax">PowerMax (via Unisphere, port 8443)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="dellpsProto">Storage Protocol</label>
+                    <select id="dellpsProto">
+                      <option value="iscsi" selected>iSCSI</option>
+                      <option value="fc">Fibre Channel</option>
+                      <option value="nvme-tcp">NVMe-TCP</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="cinder-opts-vast" class="backend-opts-group" style="display:none;">
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="vastIp">VMS Management IP</label>
+                      <input type="text" id="vastIp" value="10.10.30.110">
+                    </div>
+                    <div class="form-group">
+                      <label for="vastVippool">VIP Pool Name</label>
+                      <input type="text" id="vastVippool" value="cinder-vip-pool">
+                    </div>
+                  </div>
+                  <div class="ui-info-block">
+                    Block volumes are served over NVMe-TCP only (data VIP port 4420) via <code>VASTVolumeDriver</code>. Requires VAST cluster release &ge; 5.3.
                   </div>
                 </div>
               </div>
@@ -833,6 +957,24 @@
                     <span class="backend-dot"></span>
                   </div>
                   <div class="backend-desc">Provisions NFS/CIFS shares on dynamic SVMs (DHSS=True) or a static SVM (DHSS=False) over standard network interfaces.</div>
+                </div>
+
+                <div class="backend-card" data-manila-backend="vast">
+                  <div class="backend-title">
+                    <span>VAST Data (NFS)</span>
+                    <span class="backend-dot"></span>
+                  </div>
+                  <div class="backend-desc">Official upstream NFS share driver (VASTShareDriver) off the same VMS management plane as VAST's Cinder block driver. DHSS=False only.</div>
+                </div>
+              </div>
+
+              <div id="manila-opts-vast" class="backend-opts-group" style="display:none;">
+                <div class="form-group">
+                  <label for="vastRootExport">VAST Root Export Name</label>
+                  <input type="text" id="vastRootExport" value="manila">
+                </div>
+                <div class="ui-info-block">
+                  Uses the VMS management IP configured under the Cinder VAST Data card (Step 3), if enabled. Requires "Trash Folder Access" enabled on the VAST cluster.
                 </div>
               </div>
 
@@ -1410,6 +1552,23 @@
     <div class="toast">
       <span class="toast-icon">✓</span>
       <span class="toast-message" id="toast-text">Sizing recalculated successfully!</span>
+    </div>
+  </div>
+
+  <!-- Version & Compliance Reference / Update Check Modal -->
+  <div id="update-modal-overlay" class="update-modal-overlay" style="display:none;">
+    <div class="update-modal">
+      <div class="update-modal-header">
+        <h3>Version & Compliance Reference</h3>
+        <button id="update-modal-close" class="update-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="update-modal-body" id="update-modal-body">
+        <p>Loading bundled reference data...</p>
+      </div>
+      <div class="update-modal-footer">
+        <span id="update-modal-status" class="update-modal-status"></span>
+        <button id="btn-fetch-updates" class="btn btn-secondary">Check Online for Updates</button>
+      </div>
     </div>
   </div>
 

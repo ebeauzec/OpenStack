@@ -54,6 +54,8 @@ juju deploy ./bundle.yaml
 juju status --watch 5s
 ```
 
+> **Sunbeam note:** this tool targets the classic Juju machine-charm bundle above. Canonical also ships **Sunbeam**, a Kubernetes-native, Juju-orchestrated deployment model it now recommends for new small/edge-scale clouds (`sunbeam cluster bootstrap`, no `bundle.yaml`). Sunbeam is not yet at full outcome parity with classic Charmed OpenStack for large multi-site CSP builds, which is why the generator still targets the classic bundle.
+
 ---
 
 ## 3. Red Hat OpenStack Services on OpenShift (RHOSO) 18.0

@@ -1,9 +1,12 @@
-/* 
+/*
    OpenStack Architecture & Sizing Tool
    Ultra-Premium Glassmorphic Dark UI Stylesheet
-*/
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;600&display=swap');
+   Intentionally no @import/remote font fetch: this stylesheet ships in an
+   air-gapped/dark-site standalone HTML build, so 'Outfit'/'Source Code Pro'
+   are first-preference only and fall back to system sans-serif/monospace
+   fonts (no network call is made either way).
+*/
 
 :root {
   --bg-color: #0c0c0e;
@@ -912,6 +915,102 @@ select:focus {
 
 .toast-icon {
   color: var(--accent-cyan);
+}
+
+/* Version & Compliance Reference / Update Check Modal */
+.update-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.update-modal {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.update-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.update-modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.update-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+.update-modal-close:hover {
+  color: var(--text-main);
+}
+
+.update-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.update-modal-body h4 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.4rem;
+  color: var(--text-main);
+}
+.update-modal-body h4:first-child {
+  margin-top: 0;
+}
+
+.update-modal-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+.update-modal-body th, .update-modal-body td {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+.update-modal-body td.status-current { color: var(--accent-green); }
+.update-modal-body td.status-eol, .update-modal-body td.status-eol-soon { color: var(--accent-yellow); }
+
+.update-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.update-modal-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* Tooltip styles */
