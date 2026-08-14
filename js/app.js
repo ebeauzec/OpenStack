@@ -159,6 +159,9 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   toggleDynamicViews();
+  updateComplianceText();
+  updateCinderDiagram();
+  updateManilaDiagram();
   runCalculations();
   updateUI();
 });
@@ -911,6 +914,11 @@ function runCalculations() {
     linkSpeedGbps: state.inputs.linkSpeedGbps,
     enableStoragegrid: state.inputs.enableStoragegrid
   });
+
+  // Keep the Step 4 compat gate (banner + Next button) in sync with state even when
+  // step 4 was never visited sequentially (e.g. jumping via the stepper, or an industry
+  // preset changing manilaDhss) — validateStep() only re-checks the step being left.
+  validateManilaCompat();
 
   runLiveValidation();
 }

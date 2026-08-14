@@ -36,6 +36,14 @@ export function calculateCompute(inputs) {
     mgmtCephEnd = 250
   } = inputs;
 
+  // Defensive clamps: guard against zero/negative values (typed input, or a loaded
+  // config file) turning node counts into Infinity/NaN and corrupting downstream state.
+  const safeNodeCores = nodeCores > 0 ? nodeCores : 1;
+  const safeNodeRam = nodeRam > 0 ? nodeRam : 1;
+  const safeCpuOvercommit = cpuOvercommit > 0 ? cpuOvercommit : 1;
+  const safeRamOvercommit = ramOvercommit > 0 ? ramOvercommit : 1;
+  const safeHaBuffer = haBuffer >= 0 ? haBuffer : 0;
+
   // 1. Calculate Kubernetes virtual resource footprint
   let k8sTotalVcpus = 0;
   let k8sTotalRam = 0;
@@ -53,30 +61,30 @@ export function calculateCompute(inputs) {
   const totalLocalDiskNeeded = (vmCount * vmDisk) + k8sTotalDisk;
 
   // Effective resources per physical node (including overcommit)
-  const effectiveCoresPerNode = nodeCores * cpuOvercommit;
-  const effectiveRamPerNode = nodeRam * ramOvercommit;
+  const effectiveCoresPerNode = safeNodeCores * safeCpuOvercommit;
+  const effectiveRamPerNode = safeNodeRam * safeRamOvercommit;
 
   // Raw nodes needed
   const nodesForCpu = Math.ceil(totalVcpusNeeded / effectiveCoresPerNode);
   const nodesForRam = Math.ceil(totalRamNeeded / effectiveRamPerNode);
-  
+
   // Storage sizing if using local disks on compute nodes
   const nodesForStorage = nodeDisk > 0 ? Math.ceil(totalLocalDiskNeeded / nodeDisk) : 0;
 
   // Base compute nodes is the max of CPU or RAM constraints
   const rawComputeNodes = Math.max(nodesForCpu, nodesForRam);
-  
+
   // Total compute nodes including HA buffer
-  const finalComputeNodes = rawComputeNodes + haBuffer;
+  const finalComputeNodes = rawComputeNodes + safeHaBuffer;
 
   // Total physical resources provisioned
-  const totalPhysicalCores = finalComputeNodes * nodeCores;
-  const totalPhysicalRam = finalComputeNodes * nodeRam;
+  const totalPhysicalCores = finalComputeNodes * safeNodeCores;
+  const totalPhysicalRam = finalComputeNodes * safeNodeRam;
   const totalPhysicalLocalDisk = finalComputeNodes * nodeDisk;
 
-  // Real ratios
-  const realCpuRatio = (totalVcpusNeeded / totalPhysicalCores).toFixed(2);
-  const realRamRatio = (totalRamNeeded / totalPhysicalRam).toFixed(2);
+  // Real ratios (kept numeric — callers format for display; do not pre-stringify)
+  const realCpuRatio = totalVcpusNeeded / totalPhysicalCores;
+  const realRamRatio = totalRamNeeded / totalPhysicalRam;
 
   // Compliance Alerts and Checks
   const complianceWarnings = [];
@@ -187,20 +195,25 @@ export function calculateCeph(inputs) {
     mgmtCephEnd = 250
   } = inputs;
 
+  // Defensive clamps: guard against zero/negative typed or loaded-config values.
+  const safeOsdSizeTb = osdSizeTb > 0 ? osdSizeTb : 1;
+  const safeOsdPerNode = osdPerNode > 0 ? osdPerNode : 1;
+  const safeUtilizationLimit = utilizationLimit > 0 ? utilizationLimit : 0.75;
+
   // Total Usable capacity needed on Ceph
   const totalUsableCapacityTb = (cinderCapacityTb + manilaCapacityTb + glanceCapacityTb) * growthBuffer;
 
   // Raw capacity needed (accounting for replicas and the safe utilization limit)
-  const rawCapacityNeededTb = (totalUsableCapacityTb * replicaFactor) / utilizationLimit;
+  const rawCapacityNeededTb = (totalUsableCapacityTb * replicaFactor) / safeUtilizationLimit;
 
   // Total number of OSDs needed
-  const totalOsdNeeded = Math.ceil(rawCapacityNeededTb / osdSizeTb);
+  const totalOsdNeeded = Math.ceil(rawCapacityNeededTb / safeOsdSizeTb);
 
   // Ceph Storage Node requirements
-  const rawCephNodes = Math.max(3, Math.ceil(totalOsdNeeded / osdPerNode)); // Min 3 nodes for Ceph HA
-  
+  const rawCephNodes = Math.max(3, Math.ceil(totalOsdNeeded / safeOsdPerNode)); // Min 3 nodes for Ceph HA
+
   // Recalculate OSDs to distribute evenly across nodes if necessary
-  const finalOsdCount = Math.max(totalOsdNeeded, rawCephNodes * osdPerNode);
+  const finalOsdCount = Math.max(totalOsdNeeded, rawCephNodes * safeOsdPerNode);
 
   // PG Calculations
   const targetTotalPgs = (finalOsdCount * 100) / replicaFactor;

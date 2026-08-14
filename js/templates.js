@@ -46,7 +46,7 @@ export function getComplianceComments(inputs, service) {
       comments += `#   - CCC-1.4: Strict password complexity and 1-hour token expiration active.\n`;
     } else if (service === 'cinder' || service === 'nova') {
       comments += `#   - CCC-3.2.1.2: Volume Encryption-at-Rest via Barbican KMS is ${inputs.enableBarbican ? 'ENABLED (Compliant)' : 'DISABLED (Non-Compliant - Action Required)'}.\n`;
-      comments += `#   - CCC-6.1 / CCC-6.2: Backup & DR replication configured. Bandwidth/RTT constraints verified.\n`;
+      comments += `#   - CCC-6.1 / CCC-6.2: Backup & DR replication is ${(inputs.enableCinderBackup === 'true' && inputs.enableCinderReplication) ? 'configured. Bandwidth/RTT constraints verified.' : 'NOT fully configured (Non-Compliant - Action Required).'}\n`;
     } else if (service === 'neutron') {
       comments += `#   - CCC-1.2 / CCC-5.4: Log forwarding shipping all Neutron API/state events to SIEM IP ${inputs.siemIp || '10.10.99.100'}.\n`;
     } else if (service === 'ceph') {
@@ -60,8 +60,8 @@ export function getComplianceComments(inputs, service) {
     if (service === 'keystone') {
       comments += `#   - Section 4: Authentication rules aligned. Max token lifetime set to 3600 seconds.\n`;
     } else if (service === 'cinder' || service === 'nova') {
-      comments += `#   - Section 5.4: Storage Encryption-at-Rest enabled via Barbican. FIPS 140-2 compliance supported.\n`;
-      comments += `#   - Section 11.1 / 11.2: Off-site backups shipped to StorageGrid S3. Active-Passive DR replication active.\n`;
+      comments += `#   - Section 5.4: Storage Encryption-at-Rest via Barbican is ${inputs.enableBarbican ? 'ENABLED (Compliant). FIPS 140-2 compliance supported.' : 'DISABLED (Non-Compliant - Action Required).'}\n`;
+      comments += `#   - Section 11.1 / 11.2: Off-site backups to StorageGrid S3 are ${inputs.enableCinderBackup === 'true' ? 'ACTIVE.' : 'NOT configured (Non-Compliant).'} DR replication is ${inputs.enableCinderReplication ? 'ACTIVE.' : 'NOT configured.'}\n`;
     } else if (service === 'manila') {
       comments += `#   - Section 5.1.3: Manila multi-tenancy isolated share servers (DHSS = ${inputs.manilaDhss === 'true' ? 'True (Compliant)' : 'False (Non-Compliant - DHSS=True required)'}).\n`;
     } else if (service === 'neutron') {
@@ -72,7 +72,7 @@ export function getComplianceComments(inputs, service) {
   if (compliance.includes('nesa_ias')) {
     hasDirectives = true;
     comments += `# [NESA IAS - UAE]:\n`;
-    comments += `#   - Access Control & Cryptography: Validated secure TLS endpoints, Barbican encryption integration, and SIEM event auditing.\n`;
+    comments += `#   - Access Control & Cryptography: Validated secure TLS endpoints, ${inputs.enableBarbican ? 'Barbican encryption integration ACTIVE,' : 'Barbican encryption integration NOT configured (Action Required),'} and SIEM event auditing.\n`;
   }
 
   if (compliance.includes('pci-dss')) {
@@ -86,7 +86,7 @@ export function getComplianceComments(inputs, service) {
   if (compliance.includes('gdpr') || compliance.includes('soc2')) {
     hasDirectives = true;
     comments += `# [GDPR / SOC 2]:\n`;
-    comments += `#   - Tenant isolation, log auditing, encryption-at-rest, and DR replicas satisfy security and confidentiality trust principles.\n`;
+    comments += `#   - Tenant isolation and log auditing are enforced. Encryption-at-rest is ${inputs.enableBarbican ? 'ACTIVE' : 'NOT configured (Action Required)'}, and DR replicas are ${inputs.enableCinderReplication ? 'ACTIVE' : 'NOT configured'}.\n`;
   }
 
   if (!hasDirectives) {
@@ -632,8 +632,91 @@ export function generateJujuBundle(inputs) {
   const {
     cpuOvercommit = 3,
     ramOvercommit = 1,
-    manilaDhss = 'false'
+    manilaDhss = 'false',
+    cinderBackends = ['ceph'],
+    manilaBackends = ['cephfs_native'],
+    glanceBackend = 'rbd'
   } = inputs;
+
+  const hasCinderCeph = cinderBackends.includes('ceph');
+  const hasCinderNetapp = cinderBackends.includes('netapp');
+  const hasCinderEmc = cinderBackends.includes('emc');
+  const hasManilaCephfs = manilaBackends.some(b => b.startsWith('cephfs'));
+  const hasManilaNetapp = manilaBackends.includes('netapp');
+  const hasCeph = hasCinderCeph || hasManilaCephfs || glanceBackend === 'rbd';
+
+  const defaultVolumeType = hasCinderCeph ? 'ceph_rbd' : (hasCinderNetapp ? 'netapp_iscsi' : (hasCinderEmc ? 'powerflex' : 'ceph_rbd'));
+
+  let cephMonCharm = '';
+  let cephMonRelations = '';
+  if (hasCeph) {
+    cephMonCharm = `  ceph-mon:
+    charm: ch:ceph-mon
+    num_units: 3
+    to:
+      - 'lxd:0'
+      - 'lxd:1'
+      - 'lxd:2'
+`;
+    if (glanceBackend === 'rbd') {
+      cephMonRelations = `  - - glance:ceph
+    - ceph-mon:client
+`;
+    }
+  }
+
+  let cinderBackendCharms = '';
+  if (hasCinderCeph) {
+    cinderBackendCharms += `  cinder-ceph:
+    charm: ch:cinder-ceph
+`;
+  }
+  if (hasCinderNetapp) {
+    cinderBackendCharms += `  cinder-netapp:
+    charm: ch:cinder-netapp
+`;
+  }
+  if (hasCinderEmc) {
+    cinderBackendCharms += `  # NOTE: No official Charmhub charm exists for Dell EMC PowerFlex.
+  # Deploy cinder-dell-emc equivalent manually or via a custom charm and relate to cinder:storage-backend.
+`;
+  }
+
+  let manilaBackendCharms = '';
+  if (hasManilaCephfs) {
+    manilaBackendCharms += `  manila-ganesha:
+    charm: ch:manila-ganesha
+    num_units: 1
+`;
+  }
+  if (hasManilaNetapp) {
+    manilaBackendCharms += `  # NOTE: Configure manila's netapp-nas-* options directly, or relate a manila-generic subordinate
+  # charm for NetApp ONTAP NAS backend support.
+`;
+  }
+
+  let cinderBackendRelations = '';
+  if (hasCinderCeph) {
+    cinderBackendRelations += `  - - cinder-ceph:storage-backend
+    - cinder:storage-backend
+  - - cinder-ceph:ceph
+    - ceph-mon:client
+`;
+  }
+  if (hasCinderNetapp) {
+    cinderBackendRelations += `  - - cinder-netapp:storage-backend
+    - cinder:storage-backend
+`;
+  }
+
+  let manilaBackendRelations = '';
+  if (hasManilaCephfs) {
+    manilaBackendRelations += `  - - manila-ganesha:manila-plugin
+    - manila:manila-plugin
+  - - manila-ganesha:ceph-client
+    - ceph-mon:client
+`;
+  }
 
   return `# Canonical Juju Bundle - bundle.yaml
 # Dynamic configuration bundle for Canonical Charmed OpenStack
@@ -677,16 +760,24 @@ applications:
     options:
       enable-resize: true
       enable-live-migration: true
-  cinder:
-    charm: ch:cinder
+  # Sized: glance_backend = ${glanceBackend === 'rbd' ? 'Ceph RBD (via glance-ceph relation)' : glanceBackend === 's3' ? 'StorageGrid S3 (configure swift/s3 options manually)' : 'Local Filesystem'}
+  glance:
+    charm: ch:glance
     num_units: 3
-    options:
-      default-volume-type: ceph_rbd
     to:
       - 'lxd:0'
       - 'lxd:1'
       - 'lxd:2'
-  manila:
+  cinder:
+    charm: ch:cinder
+    num_units: 3
+    options:
+      default-volume-type: ${defaultVolumeType}
+    to:
+      - 'lxd:0'
+      - 'lxd:1'
+      - 'lxd:2'
+${cinderBackendCharms}${cephMonCharm}  manila:
     charm: ch:manila
     num_units: 3
     options:
@@ -695,14 +786,18 @@ applications:
       - 'lxd:0'
       - 'lxd:1'
       - 'lxd:2'
-relations:
+${manilaBackendCharms}relations:
   - - keystone:shared-db
     - mysql:shared-db
   - - nova-cloud-controller:amqp
     - rabbitmq-server:amqp
   - - cinder:image-service
     - glance:image-service
-`;
+  - - glance:shared-db
+    - mysql:shared-db
+  - - glance:identity-service
+    - keystone:identity-service
+${cephMonRelations}${cinderBackendRelations}${manilaBackendRelations}`;
 }
 
 export function generateRhospTemplates(inputs) {
@@ -1047,7 +1142,7 @@ connection = mysql+pymysql://cinder:CinderPass123!@${getIpAddress(apiSubnet, ctr
 
 [keystone_authtoken]
 www_authenticate_uri = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:5000
-auth_url = https://${getIpAddress(apiSubnet, 10)}:5000
+auth_url = https://${getIpAddress(apiSubnet, ctrlStart - 1)}:5000
 memcached_servers = ${getIpAddress(apiSubnet, ctrlStart)}:11211,${getIpAddress(apiSubnet, ctrlStart + 1)}:11211,${getIpAddress(apiSubnet, ctrlStart + 2)}:11211
 auth_type = password
 project_domain_name = Default
@@ -1135,7 +1230,7 @@ connection = mysql+pymysql://manila:ManilaPass123!@${getIpAddress(apiSubnet, ctr
 
 [keystone_authtoken]
 www_authenticate_uri = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:5000
-auth_url = https://${getIpAddress(apiSubnet, 10)}:5000
+auth_url = https://${getIpAddress(apiSubnet, ctrlStart - 1)}:5000
 memcached_servers = ${getIpAddress(apiSubnet, ctrlStart)}:11211,${getIpAddress(apiSubnet, ctrlStart + 1)}:11211,${getIpAddress(apiSubnet, ctrlStart + 2)}:11211
 auth_type = password
 project_domain_name = Default
@@ -1290,7 +1385,7 @@ connection = mysql+pymysql://glance:GlancePass123!@${getIpAddress(apiSubnet, ctr
 
 [keystone_authtoken]
 www_authenticate_uri = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:5000
-auth_url = https://${getIpAddress(apiSubnet, 10)}:5000
+auth_url = https://${getIpAddress(apiSubnet, ctrlStart - 1)}:5000
 auth_type = password
 project_domain_name = Default
 user_domain_name = Default
@@ -1368,7 +1463,7 @@ connection = mysql+pymysql://nova_api:NovaApiPass123!@${getIpAddress(apiSubnet, 
 
 [keystone_authtoken]
 www_authenticate_uri = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:5000
-auth_url = https://10.10.20.10:5000
+auth_url = https://${getIpAddress(apiSubnet, ctrlStart - 1)}:5000
 auth_type = password
 project_domain_name = Default
 user_domain_name = Default
@@ -1438,7 +1533,7 @@ connection = mysql+pymysql://neutron:NeutronPass123!@${getIpAddress(apiSubnet, c
 
 [keystone_authtoken]
 www_authenticate_uri = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:5000
-auth_url = https://${getIpAddress(apiSubnet, 10)}:5000
+auth_url = https://${getIpAddress(apiSubnet, ctrlStart - 1)}:5000
 auth_type = password
 project_domain_name = Default
 user_domain_name = Default
@@ -2148,7 +2243,7 @@ NetApp ONTAP is configured as a key storage controller backend, providing high-a
   let cephSection = '';
   if (hasCeph) {
     const cephNodes = cephResult.cephNodes || 3;
-    const targetPgs = cephResult.targetPgs || 128;
+    const targetPgs = cephResult.totalCalculatedPgs || 128;
     const replicaCount = inputs.replicaFactor || 3;
     cephSection = `### 4.2 Ceph Unified Storage Cluster Integration
 A high-performance Ceph cluster is sized with **${cephNodes} storage nodes** to support unified block (RBD) and file (CephFS) storage paths.
@@ -2242,9 +2337,9 @@ ${powerflexSection || '*No Dell PowerFlex backends selected in current sizing co
 
 ## 6. Security Baseline and Regulatory Compliance
 
-To satisfy the **${complianceText}** requirements, the following baseline configurations are applied:
-* **Barbican Encryption at Rest:** Barbican coordinates keys via the **${barbicanBackend.toUpperCase()}** backend to encrypt block volumes, glance images, and ephemeral VM drives.
-* **Automated Cinder Backups:** Volume backups are continuously captured and pushed to an offsite S3 backup target.
+To satisfy the **${complianceText}** requirements, the following baseline configurations are ${(enableBarbican && enableCinderBackup === 'true') ? 'applied' : 'targeted'}:
+* **Barbican Encryption at Rest:** ${enableBarbican ? `Barbican coordinates keys via the **${barbicanBackend.toUpperCase()}** backend to encrypt block volumes, glance images, and ephemeral VM drives.` : '**NOT CONFIGURED.** Barbican volume/image encryption-at-rest is currently disabled in this sizing. Enable it in Step 3 to satisfy encryption-at-rest requirements.'}
+* **Automated Cinder Backups:** ${enableCinderBackup === 'true' ? 'Volume backups are continuously captured and pushed to an offsite S3 backup target.' : '**NOT CONFIGURED.** Cinder Volume Backup is currently disabled in this sizing. Enable it in Step 3 to satisfy backup/disaster-recovery requirements.'}
 * **Centralized Auditing:** API audit trails are forwarded immediately to SIEM to ensure non-repudiation.
 `;
 }
