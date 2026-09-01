@@ -62,49 +62,49 @@ It runs entirely in the browser. There is no backend, no database, and no instal
 
 ## 📸 Walkthrough: the 7-step wizard
 
-> A note on the images below: the topology diagrams in this section are the tool's **actual generated SVG output**, extracted directly from a live session and saved as real files under [`docs/images/`](docs/images/) — not mockups. Full pixel screenshots of every wizard screen aren't included in this revision; the step-by-step descriptions below are written from and verified against the live application, and the file names below (e.g. `docs/images/step1-profile.png`) are reserved so they can be dropped in later without touching this document again.
+> A note on the images below: every screenshot in this section is the tool's actual rendered output, captured directly from a live session with the tool's own default input set (the Financial Services profile also used throughout [docs/sizing_engine.md](docs/sizing_engine.md)) — not a mockup. The topology diagrams elsewhere in this README are likewise the tool's **actual generated SVG output**, saved as real files under [`docs/images/`](docs/images/).
 
 ### Step 1 — Cloud Service Provider Profile
 
 Set a project name, choose an **OpenStack Distribution** (Kolla-Ansible, Canonical Charmed OpenStack, or Red Hat OpenStack Services on OpenShift), an **OpenStack Version**, a **Planned Deployment Scale**, and a **Vertical/Industry Profile**. Picking an industry profile auto-selects a sensible starting compliance checklist and CPU/RAM overcommit target — see [Compliance profiles](#-compliance-profiles) below for exactly what each one sets. A live **Validation Alerts** panel and a compact logical topology preview update immediately as you type.
 
-*Screenshot placeholder: `docs/images/step1-profile.png`*
+![Step 1 — Cloud Service Provider Profile](docs/images/step1-profile.png)
 
 ### Step 2 — Compute & Hypervisor Sizing
 
 Enter target workload specs (VM count, vCPUs/VM, RAM/VM, ephemeral disk/VM), overcommit ratios, and physical node specs (cores, RAM, local disk per node), plus an N+X HA compute buffer. Optionally enable a Kubernetes VM sizing overlay (master/worker counts, per-node vCPU/RAM/disk, CNI, CSI driver, Velero backup). The sidebar shows live **Hypervisor Results**: total vCPUs/RAM requested, nodes required for CPU, nodes required for RAM, nodes required for local disk (only shown when it's the binding constraint), and the final HA-buffered node count.
 
-*Screenshot placeholder: `docs/images/step2-compute.png`*
+![Step 2 — Compute & Hypervisor Sizing](docs/images/step2-compute.png)
 
 ### Step 3 — Cinder Block Storage Integration
 
 Set total usable volume capacity, then select one or more Cinder backends from seven real vendor options (see [Storage Backend Reference](docs/storage_backends.md)). Each backend reveals its own parameter group (management IP, protocol, platform variant) and an interactive data-flow diagram. Below that: Cinder Volume Backup (target: StorageGrid S3 or a dedicated Ceph pool), Volume Encryption via Barbican KMS, Cinder DR Volume Replication, Multi-Attach, and QoS throttling.
 
-*Screenshot placeholder: `docs/images/step3-cinder.png`*
+![Step 3 — Cinder Block Storage Integration](docs/images/step3-cinder.png)
 
 ### Step 4 — Manila Shared File Systems
 
 Choose the DHSS (Driver Handles Share Servers) mode with a side-by-side comparison of the tradeoffs, then select one or more Manila backends (CephFS Native, CephFS via NFS-Ganesha, NetApp ONTAP, or VAST Data). The wizard actively validates DHSS/backend compatibility — CephFS and VAST's Manila driver only support `DHSS=False` — and blocks progress with an explicit, visible warning (not a silently-disabled button) until the conflict is resolved.
 
-*Screenshot placeholder: `docs/images/step4-manila.png`*
+![Step 4 — Manila Shared File Systems](docs/images/step4-manila.png)
 
 ### Step 5 — Ceph Cluster Sizing & PG Allocation
 
 Set individual disk size, OSDs per host, media type, replication factor, Glance image pool size, safety utilization limit, and a storage growth buffer. The sidebar computes total usable/raw capacity, minimum OSD disk count, dedicated storage node count, and target PGs for the Cinder volumes pool, using the formula `(OSDs × 100) / Replica Factor`, rounded up to the nearest power of two.
 
-*Screenshot placeholder: `docs/images/step5-ceph.png`*
+![Step 5 — Ceph Cluster Sizing & PG Allocation](docs/images/step5-ceph.png)
 
 ### Step 6 — Security, Subnets & Object Storage
 
 Customize the six network subnets (Management, Internal API, Storage Frontend, Storage Backend/Replication, Tenant Overlay, External API), IP suffix pools for controller/compute/Ceph node ranges, SIEM/rsyslog target, network link speed, NetApp StorageGrid S3 object storage (auto-activated when needed by Glance/backup/Velero), and Neutron backend driver (OVN or ML2/OVS). A **Network Fabric Stats** panel shows total/recommended switch ports and storage/overlay fabric bandwidth, computed from the sized node counts.
 
-*Screenshot placeholder: `docs/images/step6-network.png`*
+![Step 6 — Security, Subnets & Object Storage](docs/images/step6-network.png)
 
 ### Step 7 — HLD, LLD & Deployment Playbooks
 
 The final step renders every generated deliverable in tabs: Proposal & Design Document, HLD, LLD, a **Hardware Bill of Materials**, distribution-specific deployment templates (Kolla-Ansible configs, Juju Bundle, or RHOSP templates), Kubernetes manifests (when K8s is enabled), a Deployment Guide, a **Staging Validation & Go-Live Checklist**, and every OpenStack service `.conf` file. Each tab has **Copy** and **Download** buttons. The Bill of Materials and Validation Checklist are both generated fresh from whatever backends/features are actually selected — they're not static templates.
 
-*Screenshot placeholder: `docs/images/step7-outputs.png`*
+![Step 7 — HLD, LLD & Deployment Playbooks](docs/images/step7-outputs.png)
 
 ---
 
