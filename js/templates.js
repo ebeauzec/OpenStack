@@ -608,6 +608,150 @@ ${formatPgPools(cephResult.pools)}
 `;
 }
 
+// Helper: rough, clearly-labeled rack-unit estimate. Real chassis selection varies by
+// vendor/config -- this exists to give a planning-stage order-of-magnitude, not a BOM
+// line the reader should order parts against without checking their actual chassis.
+function estimateRackUnits(nodeCount, uPerNode) {
+  return nodeCount * uPerNode;
+}
+
+export function generateBOM(inputs, computeResult, cephResult, networkResult) {
+  const {
+    projectName = 'Enterprise OpenStack Cloud',
+    cspScale = 'medium',
+    nodeCores = 64,
+    nodeRam = 256,
+    nodeDisk = 1000,
+    linkSpeedGbps = 10,
+    cinderBackends = ['ceph'],
+    manilaBackends = ['cephfs_native'],
+    glanceBackend = 'rbd',
+    cinderCapacityTb = 150,
+    manilaCapacityTb = 50,
+    glanceCapacityTb = 5,
+    enableK8s = false,
+    k8sMasterCount = 3,
+    k8sWorkerCount = 10,
+    enableBarbican = false,
+    barbicanBackend = 'vault',
+    enableStoragegrid = false,
+    storagegridCapacityTb = 0,
+    osdSizeTb = 8,
+    osdPerNode = 12,
+    osdMedia = 'ssd',
+    replicaFactor = 3
+  } = inputs;
+
+  const isCephUsed = cephBackendUsed(cinderBackends, manilaBackends) || glanceBackend === 'rbd';
+  const finalComputeNodes = computeResult.finalComputeNodes || 3;
+  const cephNodes = cephResult.cephNodes || 0;
+  const net = networkResult || {};
+
+  // Standard controller-node baseline -- this tool doesn't collect a separate controller
+  // hardware spec input, so this is a labeled planning assumption, not a computed value.
+  const controllerCores = 32;
+  const controllerRamGb = 128;
+  const controllerDiskGb = 1920;
+  const controllerCount = 3;
+
+  const portsPerNode = 4; // matches calculateNetwork()'s per-node port assumption
+
+  const externalStorageVendors = {
+    netapp: { name: 'NetApp ONTAP', proto: (inputs.netappProto || 'iscsi').toUpperCase(), mgmtIp: inputs.netappIp },
+    emc: { name: 'Dell EMC PowerFlex', proto: 'SDC', mgmtIp: inputs.emcIp },
+    pure: { name: 'Pure Storage FlashArray', proto: (inputs.pureProto || 'iscsi').toUpperCase(), mgmtIp: inputs.pureIp },
+    hpe: { name: `HPE ${inputs.hpePlatform === '3par' ? '3PAR' : 'Primera/Alletra'}`, proto: (inputs.hpeProto || 'fc').toUpperCase(), mgmtIp: inputs.hpeIp },
+    dellps: { name: `Dell ${inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore'}`, proto: (inputs.dellpsProto || 'iscsi').toUpperCase(), mgmtIp: inputs.dellpsIp },
+    vast: { name: 'VAST Data', proto: 'NVMe-oF/TCP', mgmtIp: inputs.vastIp }
+  };
+  const activeExternalVendors = Array.from(new Set([...cinderBackends, ...manilaBackends]))
+    .filter(b => externalStorageVendors[b]);
+
+  const externalStorageRows = activeExternalVendors.map(b => {
+    const v = externalStorageVendors[b];
+    const usedForCinder = cinderBackends.includes(b);
+    const usedForManila = manilaBackends.includes(b);
+    const role = [usedForCinder ? 'Cinder block' : null, usedForManila ? 'Manila file' : null].filter(Boolean).join(' + ');
+    return `| ${v.name} | ${role} | ${v.proto} | Management target: \`${v.mgmtIp || 'n/a'}\` | 1 array/cluster (capacity per model is vendor-specific -- validate against the vendor's own sizing tool) |`;
+  }).join('\n');
+
+  const computeRackUnits = estimateRackUnits(finalComputeNodes, 1);
+  const controllerRackUnits = estimateRackUnits(controllerCount, 1);
+  const cephRackUnits = isCephUsed ? estimateRackUnits(cephNodes, 2) : 0;
+  const totalServers = finalComputeNodes + controllerCount + (isCephUsed ? cephNodes : 0);
+  const totalRackUnits = computeRackUnits + controllerRackUnits + cephRackUnits;
+
+  return `# Hardware Bill of Materials
+## Project: ${projectName}
+**Deployment Scale:** ${cspScale} | **Generated from sizing inputs, not vendor quotes -- validate every line before procurement.**
+
+---
+
+## 1. Compute Tier
+
+| Role | Qty | CPU Cores/Node | RAM/Node (GB) | Local Disk/Node (GB) | Network Ports/Node (${linkSpeedGbps} Gbps) | Est. Rack Units |
+|---|---|---|---|---|---|---|
+| Controller Nodes (HA, Active/Active) | ${controllerCount} | ${controllerCores} *(baseline assumption -- see §5)* | ${controllerRamGb} *(baseline assumption)* | ${controllerDiskGb} *(baseline assumption)* | ${portsPerNode} | ${controllerRackUnits}U (1U/node assumed) |
+| Nova Compute / Hypervisor Nodes | ${finalComputeNodes} | ${nodeCores} | ${nodeRam} | ${nodeDisk > 0 ? nodeDisk : 'N/A (boots from Cinder volumes)'} | ${portsPerNode} | ${computeRackUnits}U (1U/node assumed) |
+${isCephUsed ? `| Ceph OSD Storage Nodes | ${cephNodes} | ${cephResult.osdCpuRequirementCores || 0} (aggregate, ${Math.ceil((cephResult.osdCpuRequirementCores || 0) / Math.max(cephNodes, 1))}/node) | ${cephResult.osdRamRequirementGb || 0} (aggregate, ${Math.ceil((cephResult.osdRamRequirementGb || 0) / Math.max(cephNodes, 1))}/node) | ${osdPerNode} x ${osdSizeTb} TB ${osdMedia.toUpperCase()} | ${portsPerNode} (dual-fabric: front + back) | ${cephRackUnits}U (2U/24-bay chassis assumed) |` : ''}
+
+**Total physical servers:** ${totalServers} &nbsp;|&nbsp; **Total estimated rack units:** ${totalRackUnits}U (${Math.ceil(totalRackUnits / 42)} standard 42U racks, before switches/PDUs/cable management)
+
+${enableK8s ? `**Kubernetes overlay:** ${k8sMasterCount} master + ${k8sWorkerCount} worker VM roles are sized as *virtual* machines hosted on the Nova Compute tier above, not separate physical hardware -- their vCPU/RAM/disk demand is already folded into the Compute Tier row via the sizing engine (see [docs/sizing_engine.md](../docs/sizing_engine.md)).` : ''}
+
+---
+
+## 2. Storage Tier
+
+${isCephUsed ? `### Ceph (software-defined, on the OSD nodes above)
+- **Total usable capacity (with growth buffer):** ${(cephResult.totalUsableCapacityTb || 0).toFixed(1)} TB
+- **Total raw capacity (with ${replicaFactor}x replication):** ${(cephResult.rawCapacityNeededTb || 0).toFixed(1)} TB
+- **OSD disks:** ${cephResult.finalOsdCount || 0} x ${osdSizeTb} TB ${osdMedia.toUpperCase()}
+` : ''}
+${externalStorageRows ? `### External storage arrays
+
+| Vendor / Array | Role | Protocol | Management | Notes |
+|---|---|---|---|---|
+${externalStorageRows}
+` : ''}
+${enableStoragegrid ? `### Object storage
+- **NetApp StorageGrid S3:** target capacity ${storagegridCapacityTb} TB usable (raw with metadata/erasure-coding overhead: ${(cephResult.storagegridRawCapacityNeededTb || storagegridCapacityTb * 1.3).toFixed(1)} TB) -- sized as a minimum 2-node grid; validate against NetApp's own StorageGrid sizing guidance for your target ILM policy.
+` : ''}
+**Capacity targets configured:** Cinder ${cinderCapacityTb} TB, Manila ${manilaCapacityTb} TB, Glance ${glanceCapacityTb} TB.
+
+---
+
+## 3. Network Tier
+
+| Item | Value |
+|---|---|
+| Uplink speed per node | ${linkSpeedGbps} Gbps |
+| Total switch ports required | ${net.totalPortsRequired || 'N/A'} |
+| Recommended switch ports (20% headroom) | ${net.recommendedSwitchPorts || 'N/A'} |
+| Storage fabric bandwidth (peak) | ${net.storageFabricBandwidthGbps || 'N/A'} Gbps |
+| Overlay/tenant fabric bandwidth (peak) | ${net.overlayFabricBandwidthGbps || 'N/A'} Gbps |
+
+This is a port/bandwidth requirement, not a specific switch model or count -- translate into your preferred top-of-rack switch SKU (leaf/spine or a redundant pair of fixed-configuration switches) based on your vendor's actual port density per unit.
+
+---
+
+## 4. Ancillary Hardware
+
+${enableBarbican && barbicanBackend === 'pkcs11' ? `- **Hardware Security Module (HSM):** Barbican is configured for PKCS#11 hardware backend -- a physical or network-attached HSM appliance is required in addition to the servers above. Model/vendor selection is outside this tool's scope.\n` : ''}${enableBarbican && barbicanBackend !== 'pkcs11' ? `- **Key management:** Barbican is configured with a **${barbicanBackend.toUpperCase()}** backend -- no dedicated hardware required beyond standard compute (HashiCorp Vault or SoftHSM both run as software).\n` : ''}${!enableBarbican ? `- No Barbican KMS hardware required (Barbican is currently disabled -- see the Compliance tab if encryption-at-rest is a requirement).\n` : ''}
+---
+
+## 5. Assumptions & Notes
+
+1. **Controller node specs (32 cores / 128 GB RAM / 1.92 TB NVMe) are a standard baseline recommendation, not a value you configured in the wizard.** This tool doesn't currently collect a separate controller hardware input -- adjust based on your actual API request volume and database size before procurement.
+2. **Rack unit (U) estimates assume 1U chassis for compute/controller nodes and a 2U/24-bay chassis for Ceph OSD nodes.** Real chassis selection varies significantly by vendor and by whether you're using dense JBOD enclosures -- treat this as an order-of-magnitude planning figure only.
+3. **External storage array capacity is a target, not a specific model/shelf count.** Each vendor listed in §2 has its own capacity-per-shelf and RAID/erasure-coding overhead math -- consult that vendor's own sizing tool for an exact configuration.
+4. **No pricing is included.** Hardware and software licensing costs vary too much by vendor, region, and negotiated agreement for this tool to responsibly estimate -- this document is a specification, not a quote.
+5. **Power, cooling, and physical rack/PDU planning are not included** for the same reason -- consult your data center team or the hardware vendor's power calculator for final specs.
+
+*Cross-reference: the exact node counts and capacity figures in this document are the same ones described in the Proposal & Design Document and HLD -- see [docs/sizing_engine.md](../docs/sizing_engine.md) for the underlying formulas.*
+`;
+}
+
 export function generateAnsible(inputs, computeResult, cephResult) {
   const {
     cinderBackends = ['ceph'],
@@ -2410,6 +2554,120 @@ function getManilaDhssHldDescription(dhss, backend) {
   return `- **Implications:** ${flatDescByBackend[backend] || 'Manila provisions shares on a single, shared storage interface or pre-provisioned storage servers. Network separation is flat.'} Network separation is flat rather than per-tenant.
 - **Backend Storage Overhead:** Lower setup times, lower cluster CPU overhead. Shares are separated using access control lists (export rules or CephX keys) rather than direct virtual networking boundaries.
 - **Best Use Case:** Single-tenant private cloud, or highly cooperative internal team deployments.`;
+}
+
+export function generateValidationChecklist(inputs, computeResult, cephResult) {
+  const {
+    projectName = 'Enterprise OpenStack Cloud',
+    openstackDistro = 'kolla',
+    cinderBackends = ['ceph'],
+    manilaBackends = ['cephfs_native'],
+    manilaDhss = 'false',
+    enableStoragegrid = false,
+    enableK8s = false,
+    k8sCsi = 'cinder',
+    enableVelero = false,
+    enableBarbican = false,
+    barbicanBackend = 'vault',
+    enableCinderReplication = false,
+    cinderReplMode = 'async',
+    enableCinderBackup = 'false',
+    enableManilaReplication = 'false',
+    cinderMultiAttach = false,
+    cinderQosEnable = false,
+    neutronDriver = 'ovn',
+    replicaFactor = 3,
+    compliance = [],
+    siemIp = '10.10.99.100'
+  } = inputs;
+
+  let itemNum = 1;
+  const item = (text) => `${itemNum++}. [ ] ${text}`;
+
+  const cinderVendorTests = {
+    ceph: 'Take one OSD node offline (power off or `systemctl stop ceph-osd@*`) and confirm the cluster remains `HEALTH_OK` (or degrades to `HEALTH_WARN`, never `HEALTH_ERR`) with volumes still readable/writable throughout.',
+    netapp: 'Trigger an ONTAP SnapMirror failover test to the configured replication target and confirm Cinder volumes remain attached/writable on the primary throughout.',
+    emc: 'Simulate an SDC path failure on one compute node (disable one network path to the PowerFlex MDM) and confirm multipath I/O fails over without volume I/O errors.',
+    pure: 'If ActiveCluster is configured, trigger a controlled array failover and confirm in-flight volume I/O continues without interruption. Otherwise, validate async replication lag against your RPO target.',
+    hpe: 'If Peer Persistence is configured, trigger a controlled array failover with the quorum witness and confirm host paths recover automatically. Otherwise, validate the array\'s standard replication/snapshot schedule.',
+    dellps: 'If PowerStore Metro or PowerMax SRDF is configured, trigger a controlled site failover and confirm volume I/O continues per the configured replication mode (Sync/Async/Metro).',
+    vast: 'Simulate an NVMe-oF path failure (disable one VIP pool network path) and confirm multipath reconnects without volume I/O errors.'
+  };
+  const manilaVendorTests = {
+    cephfs_native: 'Mount a CephFS Native share from a tenant VM, write data, then restart one Ceph MDS daemon and confirm the client reconnects and I/O resumes without data loss.',
+    cephfs_ganesha: 'Mount an NFS-Ganesha-backed share from a tenant VM and restart the Ganesha service; confirm client reconnection behavior matches your NFS client\'s expected timeout/retry settings.',
+    netapp: 'Mount a Manila share backed by the configured ONTAP SVM and, if DHSS=True, provision a new share and confirm a dedicated share server is created automatically inside the tenant network.',
+    vast: 'Mount a Manila share backed by the VAST cluster and confirm "Trash Folder Access" is enabled and snapshot support behaves as expected for the configured share type.'
+  };
+
+  const cinderTests = Array.from(new Set(cinderBackends)).map(b => cinderVendorTests[b]).filter(Boolean);
+  const manilaTests = Array.from(new Set(manilaBackends)).map(b => manilaVendorTests[b]).filter(Boolean);
+
+  return `# Staging Validation & Go-Live Checklist
+## Project: ${projectName}
+
+This checklist is generated from your specific sizing configuration -- it only lists tests relevant to the backends, features, and compliance standards you actually selected, not a generic OpenStack checklist. Run every item against a staging environment before any production cutover; this tool's sizing and compliance output are planning-stage estimates, not a substitute for validation (see the license disclaimer in the project README).
+
+---
+
+## A. Core Compute & Networking
+
+${item('Boot a test instance, confirm console access (VNC/SPICE), then delete it cleanly.')}
+${item(`Perform a live migration of a running test instance between two Nova Compute hosts and confirm zero (or acceptably brief, per your Nova CPU mode) service interruption.`)}
+${item('Assign a floating IP to a test instance and confirm inbound/outbound connectivity through the configured external subnet.')}
+${item('Create and apply a Neutron security group rule change to a running instance and confirm it takes effect without a reboot.')}
+${item(`Confirm the ${neutronDriver === 'ovn' ? 'ovn-controller' : 'neutron-l3-agent/neutron-dhcp-agent'} service recovers cleanly after a restart on one compute/network node without disrupting unrelated tenant traffic.`)}
+${computeResult && computeResult.finalComputeNodes > 1 ? item('Power off one Nova Compute node (non-graceful) and confirm the scheduler stops placing new instances on it, and that instances on other hosts are unaffected.') : ''}
+
+## B. Cinder Block Storage
+
+${item('Create, attach, write to, detach, and delete a test volume for each selected Cinder backend below.')}
+${cinderTests.map(t => item(t)).join('\n')}
+${cinderMultiAttach ? item('Attach a single volume to two instances simultaneously (multiattach-enabled volume type) and confirm both can read/write per your clustered-filesystem expectations.') : ''}
+${cinderQosEnable ? item('Attach a volume with a QoS-limited volume type and confirm measured IOPS/throughput actually respects the configured ceiling under load (e.g. `fio`).') : ''}
+${enableCinderBackup === 'true' ? item('Create a Cinder volume backup, delete the source volume, then **restore from the backup** and confirm data integrity end to end -- not just that the backup job completed.') : item('**Gap:** Cinder Volume Backup is currently disabled. If any compliance standard requiring backup/DR is selected, enable it in Step 3 before this checklist can be considered complete.')}
+${enableCinderReplication ? item(`Trigger a Cinder DR replication failover (mode: ${cinderReplMode}) to the configured target and confirm volumes come up writable within your RPO/RTO target.`) : ''}
+
+## C. Manila Shared File Systems
+
+${manilaTests.length > 0 ? item('Mount, write to, and unmount a test share for each selected Manila backend below.') : ''}
+${manilaTests.map(t => item(t)).join('\n')}
+${manilaDhss === 'true' ? item('Provision a new share and confirm a dedicated, tenant-isolated share server is created automatically -- do not assume DHSS=True works from configuration alone.') : ''}
+${enableManilaReplication === 'true' ? item('Trigger a Manila share replication failover and confirm the replica becomes writable within your RPO/RTO target.') : ''}
+
+${cephBackendUsed(cinderBackends, manilaBackends) || inputs.glanceBackend === 'rbd' ? `## D. Ceph Cluster
+
+${item(`Confirm cluster health is \`HEALTH_OK\` with ${cephResult ? cephResult.cephNodes : 3} storage nodes and ${cephResult ? cephResult.finalOsdCount : 'the sized OSD count'} OSDs all \`up\`/\`in\`.`)}
+${item(`Confirm the actual configured pool replica size matches the sized target of ${replicaFactor} (\`ceph osd pool get <pool> size\`).`)}
+${item('Simulate a full MON node loss (not just an OSD) and confirm the remaining MONs retain quorum per the configured MON count.')}
+${item('Confirm PG count per pool is within Ceph\'s recommended range for the actual OSD count (`ceph osd pool autoscale-status`), not just the tool\'s sizing-time target.')}
+` : ''}
+## E. Security & Compliance
+
+${enableBarbican ? `${item(`Create a Barbican secret, encrypt a Cinder volume with it, confirm the instance boots successfully, then rotate/re-key it per your ${barbicanBackend.toUpperCase()} backend's documented procedure and confirm existing encrypted volumes remain accessible.`)}` : item('**Gap:** Barbican volume/image encryption is currently disabled. If any compliance standard requiring encryption-at-rest is selected, enable it in Step 3 before this checklist can be considered complete.')}
+${item(`Confirm audit-relevant events (Keystone token issuance/revocation, admin CLI actions, storage access) actually reach the configured SIEM target (\`${siemIp}\`) -- verify on the receiving end, not just that the sender is configured.`)}
+${compliance.length > 0 ? item(`Re-run this tool's live Validation Alerts panel against your *actual deployed* configuration (not just the sizing-time inputs) to confirm ${compliance.map(c => c.toUpperCase()).join(', ')} checks still pass after real-world deployment drift.`) : ''}
+${enableStoragegrid ? item('Confirm StorageGrid ILM policy replication actually completes across all configured sites within the expected window, not just that objects upload successfully to the primary site.') : ''}
+
+${enableK8s ? `## F. Kubernetes on OpenStack
+
+${item(`Dynamically provision a PersistentVolumeClaim via the ${k8sCsi === 'cinder' ? 'OpenStack Cinder CSI' : 'Ceph-RBD Native CSI'} driver and confirm a pod can mount and write to it.`)}
+${item('Cordon and drain one worker node and confirm pods reschedule cleanly onto remaining workers.')}
+${enableVelero ? item('Run a full Velero backup of a test namespace (including its PVs), delete the namespace, then **restore from the Velero backup** and confirm both the Kubernetes objects and the underlying volume data return intact.') : ''}
+` : ''}
+---
+
+## Sign-off
+
+| Section | Tested By | Date | Result |
+|---|---|---|---|
+| A. Core Compute & Networking | | | |
+| B. Cinder Block Storage | | | |
+| C. Manila Shared File Systems | | | |
+${cephBackendUsed(cinderBackends, manilaBackends) || inputs.glanceBackend === 'rbd' ? '| D. Ceph Cluster | | | |\n' : ''}| E. Security & Compliance | | | |
+${enableK8s ? '| F. Kubernetes on OpenStack | | | |\n' : ''}
+*This checklist was generated from the sizing configuration active at the time of export (${openstackDistro} distribution). Re-generate it if your configuration changes materially before go-live.*
+`;
 }
 
 export function generateK8sVelero(inputs) {

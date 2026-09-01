@@ -18,7 +18,9 @@ import {
   generateDeploymentSteps,
   generateK8sVelero,
   generateProposalDesign,
-  generateLiveTopologySVG
+  generateLiveTopologySVG,
+  generateBOM,
+  generateValidationChecklist
 } from './templates.js';
 
 // Application State
@@ -222,6 +224,7 @@ const elements = {
   updateModalBody: document.getElementById('update-modal-body'),
   updateModalStatus: document.getElementById('update-modal-status'),
   btnFetchUpdates: document.getElementById('btn-fetch-updates'),
+  btnDownloadDiagram: document.getElementById('btn-download-diagram'),
 
   // Results Tab Buttons & Outputs
   tabButtons: document.querySelectorAll('.tab-btn'),
@@ -810,6 +813,31 @@ function setupEventListeners() {
     });
   });
  
+  // Download the live topology diagram as a standalone SVG file
+  if (elements.btnDownloadDiagram) {
+    elements.btnDownloadDiagram.addEventListener('click', () => {
+      const wrapper = document.getElementById('topology-diagram-wrapper');
+      const svgEl = wrapper ? wrapper.querySelector('svg') : null;
+      if (!svgEl) {
+        showToast('No diagram to download yet.');
+        return;
+      }
+      const svgText = buildStandaloneTopologySvg(svgEl);
+      const safeProjectName = (state.inputs.projectName || 'openstack').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const filename = `${safeProjectName}_topology.svg`;
+      const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Downloading diagram: ${filename}`);
+    });
+  }
+
   // Download File
   elements.btnDownload.addEventListener('click', () => {
     const rawContent = getRawContentForTab(state.currentTab);
@@ -1546,7 +1574,7 @@ function renderActiveTab() {
   
   const rawContent = getRawContentForTab(tab);
   
-  const markdownTabs = ['proposal_design', 'hld', 'lld', 'deployment_steps'];
+  const markdownTabs = ['proposal_design', 'hld', 'lld', 'bom', 'deployment_steps', 'validation_checklist'];
   if (markdownTabs.includes(tab)) {
     contentEl.innerHTML = parseMarkdown(rawContent);
   } else {
@@ -1564,6 +1592,7 @@ function getFilenameForTab(tab) {
     proposal_design: 'proposal_architecture_design.md',
     hld: 'high_level_design.md',
     lld: 'low_level_design.md',
+    bom: 'hardware_bill_of_materials.md',
     ansible: 'kolla_ansible_playbook.yml',
     juju_bundle: 'bundle.yaml',
     rhosp_templates: 'network-environment.yaml',
@@ -1571,6 +1600,7 @@ function getFilenameForTab(tab) {
     cloud_config: 'cloud-config',
     k8s_velero: 'velero-backup.yaml',
     deployment_steps: 'deployment_steps.md',
+    validation_checklist: 'staging_validation_checklist.md',
     nova_conf: 'nova.conf',
     neutron_conf: 'neutron.conf',
     keystone_conf: 'keystone.conf',
@@ -1591,6 +1621,8 @@ function getRawContentForTab(tab) {
       return generateHLD(state.inputs, state.results.compute, state.results.ceph);
     case 'lld':
       return generateLLD(state.inputs, state.results.compute, state.results.ceph);
+    case 'bom':
+      return generateBOM(state.inputs, state.results.compute, state.results.ceph, state.results.network);
     case 'ansible':
       return generateAnsible(state.inputs, state.results.compute, state.results.ceph);
     case 'juju_bundle':
@@ -1605,6 +1637,8 @@ function getRawContentForTab(tab) {
       return generateK8sVelero(state.inputs);
     case 'deployment_steps':
       return generateDeploymentSteps(state.inputs);
+    case 'validation_checklist':
+      return generateValidationChecklist(state.inputs, state.results.compute, state.results.ceph);
     case 'nova_conf':
       return generateNovaConf(state.inputs, state.results.compute);
     case 'neutron_conf':
@@ -1716,6 +1750,41 @@ function buildTableHtml(rows) {
   return table;
 }
  
+// Serialize the live topology <svg> into a standalone, self-contained SVG document:
+// resolves any CSS custom properties (var(--x)) to literal values (a standalone file has
+// no access to the page's stylesheet) and adds an explicit dark background rect so it
+// renders correctly on its own, outside the app's dark-themed page background.
+function buildStandaloneTopologySvg(svgEl) {
+  const clone = svgEl.cloneNode(true);
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#9ca3af';
+
+  const viewBox = svgEl.getAttribute('viewBox') || '0 0 950 240';
+  const [, , vbWidth, vbHeight] = viewBox.split(/\s+/).map(Number);
+  clone.setAttribute('width', vbWidth || 950);
+  clone.setAttribute('height', vbHeight || 240);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+  clone.querySelectorAll('[fill]').forEach(el => {
+    if (el.getAttribute('fill') === 'var(--text-muted)') el.setAttribute('fill', textMuted);
+  });
+
+  const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bgRect.setAttribute('x', '0');
+  bgRect.setAttribute('y', '0');
+  bgRect.setAttribute('width', vbWidth || 950);
+  bgRect.setAttribute('height', vbHeight || 240);
+  bgRect.setAttribute('fill', '#0c0c0e');
+  const defs = clone.querySelector('defs');
+  if (defs && defs.nextSibling) {
+    clone.insertBefore(bgRect, defs.nextSibling);
+  } else {
+    clone.insertBefore(bgRect, clone.firstChild);
+  }
+
+  const serialized = new XMLSerializer().serializeToString(clone);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${serialized}\n`;
+}
+
 // Toast notification helper
 function showToast(message) {
   elements.toastText.innerText = message;

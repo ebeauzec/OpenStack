@@ -51,7 +51,10 @@ It runs entirely in the browser. There is no backend, no database, and no instal
   
   See the full mapping in [Compliance & Validation Engine](docs/compliance.md).
 * **Save/Load configuration state** — export the entire input set to a `.json` file and reload it instantly to resume or share a sizing session.
-* **Automated exporters** — generates a technical proposal, High-Level Design (HLD), Low-Level Design (LLD), and deployment-ready `nova.conf`, `neutron.conf`, `keystone.conf`, `glance.conf`, `cinder.conf`, `manila.conf`, `ceph.conf`, an rsyslog SIEM config, plus Kolla-Ansible inventory/`globals.yml`, a Juju `bundle.yaml`, RHOSP/RHOSO templates, and Kubernetes Cinder-CSI/cloud-config/Velero manifests.
+* **Automated exporters** — generates a technical proposal, High-Level Design (HLD), Low-Level Design (LLD), a **Hardware Bill of Materials**, a **Staging Validation & Go-Live Checklist**, and deployment-ready `nova.conf`, `neutron.conf`, `keystone.conf`, `glance.conf`, `cinder.conf`, `manila.conf`, `ceph.conf`, an rsyslog SIEM config, plus Kolla-Ansible inventory/`globals.yml`, a Juju `bundle.yaml`, RHOSP/RHOSO templates, and Kubernetes Cinder-CSI/cloud-config/Velero manifests.
+* **Hardware Bill of Materials** — turns the sizing engine's output into a procurement-ready spec: node counts, per-tier CPU/RAM/disk specs, external storage array capacity per vendor, and network switch port/bandwidth requirements — the same numbers as the Proposal document, in a form that leaves the architect's hands and goes to a hardware vendor.
+* **Staging Validation & Go-Live Checklist** — a backend-aware test plan (not a generic OpenStack checklist) that only lists tests relevant to what you actually selected: a Ceph OSD failure drill only appears if Ceph is in use, a VAST Data NVMe-oF path failure test only if VAST is selected, a Velero restore test only if K8s+Velero is enabled, and so on — with explicit **Gap** items when a compliance-relevant control (Barbican, Cinder Backup) isn't yet configured.
+* **Downloadable topology diagram** — the live logical topology SVG can be exported as a standalone, self-contained `.svg` file directly from Step 1/2's diagram panel, for dropping into a proposal deck or architecture doc.
 * **Offline compilability** — packaged by `bundle.py` into a single, fully-inlined standalone HTML page for air-gapped secure enterprise zones. No CDN calls, no web fonts fetched over the network, no telemetry.
 * **Check for Updates** — an in-app, user-triggered reference panel (never a background/scheduled network call from inside the tool itself) showing bundled OpenStack release, Red Hat OpenStack, Ceph, and compliance-standard version data, with an optional online refresh. For dark-site environments, the companion [check_for_updates.py](check_for_updates.py) script refreshes `data/versions.json` on demand or on a schedule (cron / Task Scheduler) from a machine with internet access.
 
@@ -99,7 +102,7 @@ Customize the six network subnets (Management, Internal API, Storage Frontend, S
 
 ### Step 7 — HLD, LLD & Deployment Playbooks
 
-The final step renders every generated deliverable in tabs: Proposal & Design Document, HLD, LLD, distribution-specific deployment templates (Kolla-Ansible configs, Juju Bundle, or RHOSP templates), Kubernetes manifests (when K8s is enabled), a Deployment Guide, and every OpenStack service `.conf` file. Each tab has **Copy** and **Download** buttons.
+The final step renders every generated deliverable in tabs: Proposal & Design Document, HLD, LLD, a **Hardware Bill of Materials**, distribution-specific deployment templates (Kolla-Ansible configs, Juju Bundle, or RHOSP templates), Kubernetes manifests (when K8s is enabled), a Deployment Guide, a **Staging Validation & Go-Live Checklist**, and every OpenStack service `.conf` file. Each tab has **Copy** and **Download** buttons. The Bill of Materials and Validation Checklist are both generated fresh from whatever backends/features are actually selected — they're not static templates.
 
 *Screenshot placeholder: `docs/images/step7-outputs.png`*
 
