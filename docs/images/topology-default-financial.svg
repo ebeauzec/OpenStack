@@ -1,0 +1,110 @@
+<svg width="950" height="240" viewBox="0 0 950 240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+    </filter>
+    <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+    </filter>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff5e62"></path>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f01f26"></path>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#00fe9c"></path>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="950" height="240" fill="#0c0c0e"/>
+
+  <!-- 1. Controller Plane Container -->
+  <rect x="15" y="15" width="190" height="210" rx="8" ry="8" fill="rgba(22, 22, 25, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.5"></rect>
+  <text x="25" y="32" font-family="'Outfit', sans-serif" font-size="10px" font-weight="600" fill="#9ca3af">Controller Plane</text>
+
+  <!-- Controller Services -->
+  <!-- Keystone -->
+  <g transform="translate(25, 45)">
+    <rect x="0" y="0" width="75" height="28" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Keystone</text>
+  </g>
+
+  <!-- Glance -->
+  <g transform="translate(115, 45)">
+    <rect x="0" y="0" width="75" height="28" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Glance</text>
+  </g>
+
+  <!-- Nova Ctrl -->
+  <g transform="translate(25, 85)">
+    <rect x="0" y="0" width="75" height="28" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Nova Ctrl</text>
+  </g>
+
+  <!-- Neutron DBs -->
+  <g transform="translate(115, 85)">
+    <rect x="0" y="0" width="75" height="28" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">OVN DBs</text>
+  </g>
+
+  <!-- SIEM Logger -->
+  <g transform="translate(225, 30)">
+    <rect x="0" y="0" width="115" height="40" rx="5" ry="5" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"></rect>
+    <text x="57" y="18" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">SIEM Syslog</text>
+    <text x="57" y="30" font-family="'Outfit', sans-serif" font-size="7.5px" fill="#9ca3af" text-anchor="middle">10.10.99.100</text>
+  </g>
+
+  <!-- Compute Plane Container -->
+  <rect x="360" y="15" width="230" height="210" rx="8" ry="8" fill="rgba(22, 22, 25, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.5"></rect>
+  <text x="370" y="32" font-family="'Outfit', sans-serif" font-size="10px" font-weight="600" fill="#9ca3af">Nova Compute (27 Nodes)</text>
+
+  <!-- Compute Nodes -->
+  <!-- Tenant VM -->
+  <g transform="translate(370, 45)">
+    <rect x="0" y="0" width="90" height="32" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="45" y="19" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Tenant VM</text>
+  </g>
+
+  <!-- Libvirt / QEMU -->
+  <g transform="translate(485, 45)">
+    <rect x="0" y="0" width="90" height="32" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="45" y="19" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Libvirt / QEMU</text>
+  </g>
+
+  <!-- SDN local agent -->
+  <g transform="translate(485, 95)">
+    <rect x="0" y="0" width="90" height="32" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1"></rect>
+    <text x="45" y="19" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">ovn-controller</text>
+  </g>
+
+  <!-- Storage Tier Container -->
+  <rect x="610" y="15" width="325" height="210" rx="8" ry="8" fill="rgba(22, 22, 25, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.5"></rect>
+  <text x="620" y="32" font-family="'Outfit', sans-serif" font-size="10px" font-weight="600" fill="#9ca3af">Storage Fabric Tier</text>
+
+  <!-- Storage Block: ceph -->
+  <g transform="translate(700, 90)">
+    <rect x="0" y="0" width="140" height="50" rx="5" ry="5" fill="rgba(22, 22, 25, 0.7)" stroke="#ff5e62" stroke-width="1.2"></rect>
+    <text x="70" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">Ceph RBD/FS</text>
+    <text x="70" y="29" font-family="'Outfit', sans-serif" font-size="7.5px" fill="#9ca3af" text-anchor="middle">11 OSD Nodes</text>
+  </g>
+<!-- Connection Flows -->
+  <!-- Keystone Authentication Lines -->
+  <path d="M 62 59 L 110 59" stroke="#ff5e62" stroke-width="1" fill="none" opacity="0.4"></path>
+  <path d="M 62 59 L 62 85" stroke="#ff5e62" stroke-width="1" fill="none" opacity="0.4"></path>
+  <path d="M 62 59 L 110 85" stroke="#ff5e62" stroke-width="1" fill="none" opacity="0.4"></path>
+  <!-- Glance to Ceph RBD -->
+  <path d="M 152 59 C 250 -10 550 -10 770 90" stroke="#f01f26" stroke-width="1.5" class="flow-path-animated" fill="none" marker-end="url(#arrow-red)"></path>
+  <!-- Tenant VM to Local Agent -->
+  <path d="M 460 61 L 485 61" stroke="#00fe9c" stroke-width="1.2" fill="none"></path>
+  <!-- Local SDN Controller agent to Neutron DBs -->
+  <path d="M 485 111 C 350 130 250 130 190 99" stroke="#00fe9c" stroke-width="1.2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow-green)"></path>
+  <!-- Nova API to Libvirt Control Path -->
+  <path d="M 100 99 C 250 90 300 61 485 61" stroke="#ff5e62" stroke-width="1.2" fill="none" marker-end="url(#arrow-blue)"></path>
+  <!-- Libvirt / QEMU to Cinder Ceph RBD/FS Data Path -->
+  <path d="M 535 61 C 580 61 600 115 700 115" stroke="#f01f26" stroke-width="1.8" class="flow-path-animated" fill="none" marker-end="url(#arrow-red)"></path>
+  <!-- SIEM syslog auditing streams -->
+    <path d="M 15 120 L 225 50" stroke="#ff9e9e" stroke-width="0.8" stroke-dasharray="3,3" fill="none" opacity="0.3"></path>
+    <path d="M 360 120 L 340 50" stroke="#ff9e9e" stroke-width="0.8" stroke-dasharray="3,3" fill="none" opacity="0.3"></path>
+</svg>
