@@ -3711,13 +3711,13 @@ ${getManilaDhssHldDescription(manilaDhss, b)}`).join('\n\n')}
 ### Business Continuity, Replication & Backup Policies
 - **Cinder Volumes Backup:** ${inputs.enableCinderBackup === 'true' ? `Enabled. Vol backups are shipped to **${inputs.cinderBackupTarget === 'storagegrid' ? 'NetApp StorageGrid S3' : 'Ceph Backup Pool'}** using multi-stream compression.` : 'Disabled. (Check compliance checklist; NCA CCC recommends external volume backup targets).'}
 - **Manila Share Replication:** ${inputs.enableManilaReplication === 'true' ? `Active share mirroring configured. NetApp ONTAP handles this via SVM SnapMirror active sync; CephFS utilizes active-passive MDS mirroring daemon.` : 'Not Configured.'}
-- **Ceph RBD Mirroring:** For Ceph backends, active-passive asynchronous journaling mirrors RBD images across two geodistributed data centers over WAN interfaces.
-- **S3 Data Protection (StorageGrid):** S3 bucket objects replication rules are managed by the StorageGrid Information Lifecycle Management (ILM) engine, ensuring dual-site active replica copies.
+- **Ceph RBD Mirroring:** ${cephBackendUsed(cinderBackends, manilaBackends) && inputs.enableCinderReplication ? 'Enabled for Ceph-backed Cinder volumes -- the `rbd-mirror` daemon asynchronously replicates RBD images to a remote Ceph cluster over WAN interfaces.' : 'Not Configured. (Cinder Volume Replication is disabled below, or no Ceph Cinder backend is selected -- rbd-mirror is not active in this design.)'}
+- **S3 Data Protection (StorageGrid):** ${enableStoragegrid ? 'StorageGrid is provisioned; S3 bucket replication rules are managed by its Information Lifecycle Management (ILM) engine, supporting dual-site active replica copies where configured.' : 'Not Configured. (StorageGrid object storage is not provisioned in this design.)'}
 - **Cinder Volume Replication (Disaster Recovery):** ${inputs.enableCinderReplication ? `Enabled. Mode: **${inputs.cinderReplMode.toUpperCase()}**. WAN Target: **${inputs.cinderReplTarget}**.
   - *Implications:* ${inputs.cinderReplMode === 'sync' ? 'Synchronous mode guarantees zero data loss (RPO=0) but adds write network latency directly to QEMU write operations. Maximum supported distance is 100km (RTT < 2ms).' : 'Asynchronous mode permits infinite geo-distribution but exposes an RPO equal to the sync replication cycle (e.g. 5 minutes).'}` : 'Disabled.'}
 - **Volume Encryption (Barbican KMS):** ${inputs.enableBarbican ? `Enabled. Boot volumes are encrypted using Castellan wrapper and Barbican API key manager.
   - *Implications:* Enhances security compliance (FIPS 140-2 / DESC CSP). Adds a 5-15% CPU load overhead on hypervisors during high disk IOPS workloads due to real-time QEMU decryption.` : 'Disabled.'}
-- **Kubernetes Velero Backup:** ${inputs.enableVelero ? 'Enabled. Schedule backups of container namespaces and PV snapshots directly to NetApp StorageGrid S3 buckets.' : 'Disabled.'}
+- **Kubernetes Velero Backup:** ${inputs.enableVelero ? (enableStoragegrid ? 'Enabled. Schedules backups of container namespaces and PV snapshots directly to the provisioned StorageGrid S3 target.' : 'Enabled, but no StorageGrid S3 target is provisioned in this design -- an S3-compatible bucket (external or third-party) must be supplied as the Velero BackupStorageLocation before this is deployable.') : 'Disabled.'}
 
 ---
 
@@ -5936,7 +5936,7 @@ function getCinderBackendHldDescription(backend, inputs) {
 - **Advantages:** Cost-effective, zero vendor lock-in, extreme performance for virtual disk reads/writes using direct block mapping.`;
   } else if (backend === 'netapp') {
     return `- **Architecture Choice:** NetApp ONTAP Storage System.
-- **Protocol:** \`${inputs.netappProto.toUpperCase()}\` (runs over Dedicated Storage network).
+- **Protocol:** \`${(inputs.netappProto || 'iscsi').toUpperCase()}\` (runs over Dedicated Storage network).
 - **Storage Family:** Clustered ONTAP.
 - **Efficiency:** Hardware-deduplication (\`${inputs.netappDedup === 'true' ? 'enabled' : 'disabled'}\`) and compression (\`${inputs.netappCompression === 'true' ? 'enabled' : 'disabled'}\`) configured.
 - **Host Multipathing:** ALUA enabled on hypervisors to handle active/non-optimized path failovers.`;
@@ -6105,6 +6105,7 @@ ${enableK8s ? '| F. Kubernetes on OpenStack | | | |\n' : ''}
 
 function generateK8sVelero(inputs) {
   const {
+    enableStoragegrid = false,
     storagegridIp = '10.10.30.70',
     storagegridPort = '10443',
     storagegridBucket = 'k8s-backups',
@@ -6112,15 +6113,21 @@ function generateK8sVelero(inputs) {
     storagegridSecretKey = 'SG_SECRET_ACCESS_KEY'
   } = inputs;
 
+  const s3Url = enableStoragegrid ? `https://${storagegridIp}:${storagegridPort}` : 'https://REPLACE-WITH-YOUR-S3-ENDPOINT';
+  const bslName = enableStoragegrid ? 'storagegrid-s3' : 's3-backup-target';
+
   return `# Kubernetes Velero Backup Configuration & Manifests
 # File: velero-backup.yaml
-# IMPLICATIONS: Backup of Kubernetes namespaces and CSI persistent volumes
-# directly to NetApp StorageGrid S3. Incremental backups are executed via Restic/Kopia.
+# IMPLICATIONS: Backup of Kubernetes namespaces and CSI persistent volumes to an S3-compatible target.
+# Incremental backups are executed via Restic/Kopia.
+${enableStoragegrid ? '# Target: NetApp StorageGrid S3 (provisioned in this design).' : `# NOTE: This design does not provision StorageGrid or any other S3-compatible object store.
+# Velero requires one -- substitute your own S3-compatible endpoint/bucket/credentials below
+# before applying this manifest. The values here are placeholders only.`}
 
 apiVersion: velero.io/v1
 kind: BackupStorageLocation
 metadata:
-  name: storagegrid-s3
+  name: ${bslName}
   namespace: velero
 spec:
   provider: aws
@@ -6130,7 +6137,7 @@ spec:
   config:
     region: us-east-1
     s3ForcePathStyle: "true"
-    s3Url: https://${storagegridIp}:${storagegridPort}
+    s3Url: ${s3Url}
 ---
 apiVersion: velero.io/v1
 kind: VolumeSnapshotLocation
@@ -6209,7 +6216,8 @@ function generateProposalDesign(inputs, computeResult, cephResult) {
     siemIp = '10.10.99.100',
     siemPort = 514,
     tenantTunnelProto = 'geneve',
-    osdMedia = 'ssd'
+    osdMedia = 'ssd',
+    neutronDriver = 'ovn'
   } = inputs;
 
   const complianceText = compliance.length > 0 
@@ -6230,6 +6238,31 @@ function generateProposalDesign(inputs, computeResult, cephResult) {
   const hasHpe = cinderBackends.includes('hpe');
   const hasDellps = cinderBackends.includes('dellps');
   const hasVast = cinderBackends.includes('vast') || manilaBackends.includes('vast');
+
+  // Cinder attach-protocol summary (Section 3.1) -- built from the actually-selected
+  // Cinder backends, not a single vendor's protocol field standing in for all of them.
+  const cinderAttachProtoMap = {
+    ceph: 'librbd (mapped directly inside the QEMU process, no host-level block device)',
+    netapp: netappProto.toUpperCase(),
+    emc: 'the PowerFlex Storage Data Client (SDC) local block device',
+    pure: pureProto === 'fc' ? 'Fibre Channel' : pureProto === 'iscsi' ? 'iSCSI' : 'NVMe-oF',
+    hpe: hpeProto === 'fc' ? 'Fibre Channel' : 'iSCSI',
+    dellps: dellpsProto === 'nvme-tcp' ? 'NVMe-TCP' : dellpsProto === 'fc' ? 'Fibre Channel' : 'iSCSI',
+    vast: 'NVMe-oF/TCP'
+  };
+  const cinderAttachProtoSummary = Array.from(new Set(cinderBackends))
+    .map(b => cinderAttachProtoMap[b]).filter(Boolean).join(' or ') || 'the backend-specific attach protocol';
+
+  // Manila share-lifecycle summary (Section 3.2) -- built from the actually-selected
+  // Manila backends, not a hardcoded CephFS/NetApp pairing regardless of selection.
+  const manilaLifecycleMap = {
+    cephfs_native: 'compute nodes mount CephFS shares directly via the native kernel/ceph-fuse client',
+    cephfs_ganesha: 'shares are re-exported over NFS through an NFS-Ganesha gateway in front of CephFS',
+    netapp: 'NetApp ONTAP configures export policies and routes traffic through dedicated Storage Virtual Machine interfaces',
+    vast: 'VAST Data presents NFS shares directly from the VMS-managed cluster'
+  };
+  const manilaLifecycleSummary = Array.from(new Set(manilaBackends))
+    .map(b => manilaLifecycleMap[b]).filter(Boolean).join('; ') || 'the configured Manila backend\'s native export mechanism';
 
   // NetApp Section
   let netappSection = '';
@@ -6357,11 +6390,15 @@ The sized physical hypervisor footprint requires **${computeResult.finalComputeN
 
 ## 2. Infrastructure Advantages & Core Concepts
 
-### 2.1 Neutron OVN SDN Advantage
+${neutronDriver === 'ovn' ? `### 2.1 Neutron OVN SDN Advantage
 This deployment leverages the **Open Virtual Network (OVN)** SDN driver for Neutron:
 * **Distributed Services:** Layer 3 routing, distributed DHCP, and local metadata services run directly on the Nova compute hosts, removing the centralized Network Node bottleneck.
 * **Logical Flow Compilation:** Network layout modifications are processed by the central OVN database and compiled locally into Open vSwitch flows via the \`ovn-controller\` daemon running on each hypervisor.
-* **Operational Simplicity:** Legacy agents (\`neutron-l3-agent\`, \`neutron-dhcp-agent\`) are replaced by standard OVS interfaces, lowering troubleshooting complexity.
+* **Operational Simplicity:** Legacy agents (\`neutron-l3-agent\`, \`neutron-dhcp-agent\`) are replaced by standard OVS interfaces, lowering troubleshooting complexity.` : `### 2.1 Neutron ML2/OVS SDN Architecture
+This deployment uses the legacy **ML2/OVS** driver for Neutron:
+* **Agent-Based Services:** Layer 3 routing and DHCP are handled by dedicated \`neutron-l3-agent\` and \`neutron-dhcp-agent\` processes, typically concentrated on Network/Controller nodes rather than distributed to every compute host.
+* **Flow Programming:** Open vSwitch flows are programmed directly by the ML2 plugin and its L2 agent on each hypervisor, without an intermediate OVN logical-flow database.
+* **Operational Note:** ML2/OVS remains widely deployed and well understood, but lacks OVN's distributed L3/DHCP model -- factor Network node sizing and HA accordingly.`}
 
 ### 2.2 Glance Storage Offloading
 * **Storage Ingestion Routing:** Rather than routing image transfer streams through the controllers, image downloads are directed straight to the Compute nodes from the **${glanceBackend === 's3' ? 'S3/StorageGrid Object Store' : 'Ceph RBD Pool'}**. This eliminates ephemeral space exhaustion on the controller nodes during simultaneous VM provisioning.
@@ -6372,11 +6409,11 @@ This deployment leverages the **Open Virtual Network (OVN)** SDN driver for Neut
 
 ### 3.1 Cinder Volume Ingestion Path
 * **Hypervisor Direct Mount:** Cinder manages block device lifecycles (creation, deletion, snapping), but the active read/write data paths flow directly from Compute nodes to the storage array:
-  * **QEMU Integration:** Libvirt configures the VM to attach the volume directly via **${netappProto.toUpperCase()}** or **librbd** over the storage network, bypassing any intermediate OS mounts on the hypervisor host.
+  * **QEMU Integration:** Libvirt configures the VM to attach the volume directly via **${cinderAttachProtoSummary}** over the storage network, bypassing any intermediate OS mounts on the hypervisor host.
   * **Traffic Separation:** All storage block traffic is isolated on the **${storageFrontSubnet}** network.
 
 ### 3.2 Manila File Share Lifecycle
-* **Multi-Tenant Share Exports:** Manila provisions shared filesystems dynamically. For native CephFS, compute nodes mount the file shares directly, while NetApp ONTAP configures export policies and routes traffic through dedicated Storage Virtual Machine interfaces.
+* **Multi-Tenant Share Exports:** Manila provisions shared filesystems dynamically. For this design's selected backend(s): ${manilaLifecycleSummary}.
 
 ---
 
@@ -6612,7 +6649,7 @@ function generateLiveTopologySVG(inputs, computeResult, cephResult) {
   <!-- Neutron DBs -->
   <g transform="translate(115, 85)">
     <rect x="0" y="0" width="75" height="28" rx="5" ry="5" fill="rgba(240, 31, 38, 0.08)" stroke="#f01f26" stroke-width="1" />
-    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">OVN DBs</text>
+    <text x="37" y="17" font-family="'Outfit', sans-serif" font-size="9px" font-weight="600" fill="#f3f4f6" text-anchor="middle">${neutronDriver === 'ovn' ? 'OVN DBs' : 'Neutron ML2/OVS'}</text>
   </g>
 `;
 
