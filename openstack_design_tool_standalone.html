@@ -4076,13 +4076,19 @@ function generateBOM(inputs, computeResult, cephResult, networkResult) {
 
   const portsPerNode = 4; // matches calculateNetwork()'s per-node port assumption
 
+  // cinderProto/manilaProto are tracked SEPARATELY -- NetApp and VAST Data both support
+  // Cinder (block) and Manila (file) with genuinely different protocols (e.g. NetApp's
+  // Cinder protocol is whatever's configured in Step 3, but its Manila driver always uses
+  // NFS/CIFS regardless of that setting; VAST is NVMe-oF/TCP for Cinder but NFS-only for
+  // Manila). A single shared "proto" field previously showed the Cinder protocol even on
+  // rows that were Manila-only, which is factually wrong for the Manila role.
   const externalStorageVendors = {
-    netapp: { name: 'NetApp ONTAP', proto: (inputs.netappProto || 'iscsi').toUpperCase(), mgmtIp: inputs.netappIp },
-    emc: { name: 'Dell EMC PowerFlex', proto: 'SDC', mgmtIp: inputs.emcIp },
-    pure: { name: 'Pure Storage FlashArray', proto: (inputs.pureProto || 'iscsi').toUpperCase(), mgmtIp: inputs.pureIp },
-    hpe: { name: `HPE ${inputs.hpePlatform === '3par' ? '3PAR' : 'Primera/Alletra'}`, proto: (inputs.hpeProto || 'fc').toUpperCase(), mgmtIp: inputs.hpeIp },
-    dellps: { name: `Dell ${inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore'}`, proto: (inputs.dellpsProto || 'iscsi').toUpperCase(), mgmtIp: inputs.dellpsIp },
-    vast: { name: 'VAST Data', proto: 'NVMe-oF/TCP', mgmtIp: inputs.vastIp }
+    netapp: { name: 'NetApp ONTAP', cinderProto: (inputs.netappProto || 'iscsi').toUpperCase(), manilaProto: 'NFS / CIFS', mgmtIp: inputs.netappIp },
+    emc: { name: 'Dell EMC PowerFlex', cinderProto: 'SDC', manilaProto: null, mgmtIp: inputs.emcIp },
+    pure: { name: 'Pure Storage FlashArray', cinderProto: (inputs.pureProto || 'iscsi').toUpperCase(), manilaProto: null, mgmtIp: inputs.pureIp },
+    hpe: { name: `HPE ${inputs.hpePlatform === '3par' ? '3PAR' : 'Primera/Alletra'}`, cinderProto: (inputs.hpeProto || 'fc').toUpperCase(), manilaProto: null, mgmtIp: inputs.hpeIp },
+    dellps: { name: `Dell ${inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore'}`, cinderProto: (inputs.dellpsProto || 'iscsi').toUpperCase(), manilaProto: null, mgmtIp: inputs.dellpsIp },
+    vast: { name: 'VAST Data', cinderProto: 'NVMe-oF/TCP', manilaProto: 'NFS', mgmtIp: inputs.vastIp }
   };
   const activeExternalVendors = Array.from(new Set([...cinderBackends, ...manilaBackends]))
     .filter(b => externalStorageVendors[b]);
@@ -4092,7 +4098,14 @@ function generateBOM(inputs, computeResult, cephResult, networkResult) {
     const usedForCinder = cinderBackends.includes(b);
     const usedForManila = manilaBackends.includes(b);
     const role = [usedForCinder ? 'Cinder block' : null, usedForManila ? 'Manila file' : null].filter(Boolean).join(' + ');
-    return `| ${v.name} | ${role} | ${v.proto} | Management target: \`${v.mgmtIp || 'n/a'}\` | 1 array/cluster (capacity per model is vendor-specific -- validate against the vendor's own sizing tool) |`;
+    const protoParts = [
+      usedForCinder ? `${v.cinderProto} (Cinder)` : null,
+      usedForManila && v.manilaProto ? `${v.manilaProto} (Manila)` : null
+    ].filter(Boolean);
+    // If only one role is active, drop the "(Cinder)"/"(Manila)" suffix -- it's redundant
+    // with the Role column in that case.
+    const protoDisplay = protoParts.length === 1 ? protoParts[0].replace(/ \((Cinder|Manila)\)$/, '') : protoParts.join(' / ');
+    return `| ${v.name} | ${role} | ${protoDisplay} | Management target: \`${v.mgmtIp || 'n/a'}\` | 1 array/cluster (capacity per model is vendor-specific -- validate against the vendor's own sizing tool) |`;
   }).join('\n');
 
   const computeRackUnits = estimateRackUnits(finalComputeNodes, 1);
