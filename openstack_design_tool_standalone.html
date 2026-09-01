@@ -448,8 +448,10 @@ select:focus {
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  row-gap: 0.75rem;
   z-index: 100;
 }
 
@@ -472,6 +474,7 @@ select:focus {
 
 .wizard-nav-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -2769,6 +2772,32 @@ select:focus {
                 </div>
               </div>
             </div>
+
+            <!-- Network fabric sizing panel -->
+            <div class="sizing-summary" id="summary-network-fabric">
+              <h3 class="summary-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="14" width="20" height="6" rx="1"/><path d="M6 14v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><line x1="6" y1="17" x2="6.01" y2="17"/><line x1="18" y1="17" x2="18.01" y2="17"/></svg>
+                Network Fabric Stats
+              </h3>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span class="label">Total Switch Ports Required</span>
+                  <span class="value" id="calc-total-ports">-</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Recommended Switch Ports</span>
+                  <span class="value" id="calc-switch-ports">-</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Storage Fabric Bandwidth</span>
+                  <span class="value" id="calc-storage-bw">-</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Overlay/Tenant Fabric Bandwidth</span>
+                  <span class="value" id="calc-overlay-bw">-</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -2951,10 +2980,11 @@ select:focus {
   <script type="application/json" id="version-manifest">
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-08-14T00:00:00Z",
-  "sourceNote": "Curated snapshot, web-verified as of 2026-08-14. Refresh via check_for_updates.py or the in-app Check for Updates button.",
+  "generatedAt": "2026-09-01T00:00:00Z",
+  "sourceNote": "Curated snapshot, web-verified as of 2026-09-01. Refresh via check_for_updates.py or the in-app Check for Updates button.",
   "openstack": {
     "latest": "2026.1",
+    "upcoming": { "value": "2026.2", "codename": "Hibiscus", "slurp": false, "expectedGaDate": "2026-09-30", "status": "in-development", "notes": "Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA." },
     "releases": [
       { "value": "2026.1", "codename": "Gazpacho", "slurp": true, "releaseDate": "2026-04-01", "status": "current" },
       { "value": "2025.2", "codename": "Flamingo", "slurp": false, "releaseDate": "2025-10-01", "status": "supported" },
@@ -2984,7 +3014,12 @@ select:focus {
       "status": "actively maintained, classic machine-charm bundles",
       "notes": "Canonical now steers new small/edge-scale deployments toward Sunbeam (K8s-native, sunbeam cluster bootstrap) instead. Sunbeam is not yet at full outcome parity with classic Charmed OpenStack for large multi-site builds."
     },
-    "ceph": { "current": "Tentacle (20.2.x)", "prior": ["Squid (19.x)", "Reef (18.x)"], "source": "https://docs.ceph.com/en/latest/releases/tentacle/" },
+    "ceph": {
+      "current": "Tentacle (20.2.4)",
+      "prior": ["Squid (19.2.6)", "Reef (18.x)"],
+      "securityNote": "20.2.4 / 19.2.6 (2026-08-19) is an urgent combined security release fixing 4 CVEs, most notably CVE-2025-30156 (AES-CBC/CephX auth-bypass). Introduces a new CephX key type (aes256k) and a specific key-rotation upgrade procedure; multisite RGW needs an rgw_sigv4_insecure toggle during upgrade. Any Ceph-backed deployment on an older point release should patch to this promptly.",
+      "source": "https://ceph.io/en/news/blog/2026/v20-2-4-v19-2-6-combo-released/"
+    },
     "neutronSdn": { "recommended": "ML2/OVN", "legacy": "ML2/OVS", "notes": "OVN has been the recommended default since the Xena/Yoga era; OVS is legacy." }
   },
   "compliance": {
@@ -3422,6 +3457,8 @@ function getComplianceComments(inputs, service) {
       comments += `#   - Backup & recovery domain: Backup & DR replication is ${(inputs.enableCinderBackup === 'true' && inputs.enableCinderReplication) ? 'configured. Bandwidth/RTT constraints verified.' : 'NOT fully configured (Non-Compliant - Action Required).'}\n`;
     } else if (service === 'neutron') {
       comments += `#   - Logging & monitoring domain: Log forwarding shipping all Neutron API/state events to SIEM IP ${inputs.siemIp || '10.10.99.100'}.\n`;
+    } else if (service === 'siem') {
+      comments += `#   - Logging & monitoring domain: this host is the central SIEM aggregation target for Keystone, Nova, Cinder, Manila, Neutron, and auditd events across the deployment.\n`;
     } else if (service === 'ceph') {
       comments += `#   - Data & information protection domain: Ceph replication pool size set to 3 (Min replication of 3 is mandated for data durability).\n`;
     }
@@ -3984,6 +4021,7 @@ function generateAnsible(inputs, computeResult, cephResult) {
     cinderBackends = ['ceph'],
     manilaBackends = ['cephfs_native'],
     enableStoragegrid = false,
+    glanceBackend = 'rbd',
     openstackVersion = '2024.1'
   } = inputs;
 
@@ -4066,7 +4104,7 @@ enable_manila_backend_netapp: "${manilaBackends.includes('netapp') ? 'yes' : 'no
 enable_manila_backend_vast: "${manilaBackends.includes('vast') ? 'yes' : 'no'}"
 
 # Glance Object Backend Selection
-glance_backend_s3: "${enableStoragegrid ? 'yes' : 'no'}"
+glance_backend_s3: "${glanceBackend === 's3' ? 'yes' : 'no'}"
 
 # Logging & External SIEM Forwarding
 enable_central_logging: "yes"
@@ -4948,7 +4986,7 @@ function generateSIEMConf(inputs) {
     compliance = []
   } = inputs;
 
-  return `${getComplianceComments(inputs, 'neutron')}# /etc/rsyslog.d/99-openstack-siem.conf
+  return `${getComplianceComments(inputs, 'siem')}# /etc/rsyslog.d/99-openstack-siem.conf
 module(load="imfile")
 template(name="SIEMFormat" type="string" string="<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME%[%PROCID%]: %msg%\\n")
 
@@ -5737,19 +5775,49 @@ function getCinderBackendHldDescription(backend, inputs) {
     return `- **Architecture Choice:** Dell EMC PowerFlex software-defined storage.
 - **Protocol:** Custom SDC block driver.
 - **Advantages:** Massively parallel block distribution, millisecond latency profiles, linear scale-out and enterprise multi-pathing natively handled by the Storage Data Client daemon on compute nodes.`;
+  } else if (backend === 'pure') {
+    return `- **Architecture Choice:** Pure Storage FlashArray, all-flash array.
+- **Protocol:** \`${(inputs.pureProto || 'iscsi').toUpperCase()}\` via the official upstream Pure Cinder driver.
+- **Efficiency:** Deduplication and compression run continuously at the array controller level; not driver-toggled.
+- **Advantages:** Consistent low-latency all-flash performance, ActiveCluster stretched-pod synchronous replication for HA/DR.`;
+  } else if (backend === 'hpe') {
+    const hpeWsapiPort = (inputs.hpePlatform || 'primera_alletra') === '3par' ? 8080 : 443;
+    return `- **Architecture Choice:** HPE ${(inputs.hpePlatform || 'primera_alletra') === '3par' ? '3PAR' : 'Primera / Alletra 9k / Alletra MP'} enterprise SAN.
+- **Protocol:** \`${(inputs.hpeProto || 'fc').toUpperCase()}\`, control-plane provisioning via the array's WSAPI (port ${hpeWsapiPort}).
+- **Advantages:** "Peer Persistence" synchronous replication with quorum witness for transparent host failover.`;
+  } else if (backend === 'dellps') {
+    const isPowerMax = inputs.dellpsPlatform === 'powermax';
+    return `- **Architecture Choice:** Dell ${isPowerMax ? 'PowerMax' : 'PowerStore'} ${isPowerMax ? 'mainframe-class' : 'unified'} SAN (distinct from Dell EMC PowerFlex).
+- **Protocol:** \`${(inputs.dellpsProto || 'iscsi').toUpperCase()}\`${isPowerMax ? ', managed via Unisphere for PowerMax rather than the array directly' : ', direct-to-array REST gateway'}.
+- **Advantages:** ${isPowerMax ? 'SRDF Synchronous/Asynchronous/Metro replication.' : 'Always-on thin provisioning and compression; Metro volume active/active clustering.'}`;
+  } else if (backend === 'vast') {
+    return `- **Architecture Choice:** VAST Data Universal Storage platform.
+- **Protocol:** NVMe-oF/TCP via the official upstream VAST Cinder driver, managed through the cluster's VMS API.
+- **Advantages:** Only backend in this design with both an official Cinder block driver and Manila NFS driver from a single management plane.`;
   }
+  return `- **Architecture Choice:** ${backend.toUpperCase()} (custom/unrecognized backend key — verify configuration manually).`;
 }
 
 function getManilaDhssHldDescription(dhss, backend) {
+  if ((backend === 'cephfs_native' || backend === 'cephfs_ganesha' || backend === 'vast') && dhss === 'true') {
+    return `- **Implications:** **Incompatible.** ${backend === 'vast' ? 'VAST Data\'s' : 'The native CephFS'} Manila driver only supports \`driver_handles_share_servers = False\` — it cannot dynamically provision Share Servers. Set DHSS to False in Step 4 for this backend, or switch to NetApp ONTAP if DHSS=True isolation is required.
+- **Backend Storage Overhead:** N/A while misconfigured — resolve the DHSS setting first.
+- **Best Use Case:** N/A until resolved.`;
+  }
   if (dhss === 'true') {
     return `- **Implications:** Manila dynamically deploys Share Servers (e.g. NetApp SVMs) directly inside the tenant's Neutron private networks. This guarantees complete isolation at the IP layer (DESC compliant).
 - **Backend Storage Overhead:** Storage backend must support automated SVM generation and dynamic IP interface bindings. High overhead per tenant, but satisfies security isolation (e.g., PCI-DSS/HIPAA).
 - **Best Use Case:** Public clouds serving multiple untrusted enterprise clients.`;
-  } else {
-    return `- **Implications:** Manila provisions shares on a single, shared storage interface or pre-provisioned storage servers (e.g., single SVM or native CephFS cluster). Network separation is flat.
+  }
+  const flatDescByBackend = {
+    cephfs_native: 'Compute nodes mount CephFS directly via the kernel/FUSE client; tenant isolation relies on CephX auth keys scoped per share.',
+    cephfs_ganesha: 'Compute nodes mount NFS shares served by an NFS-Ganesha gateway proxying CephFS, hiding the Ceph network behind a standard NFS interface.',
+    netapp: 'Manila creates export paths on a single pre-existing, shared ONTAP SVM rather than provisioning one per tenant.',
+    vast: 'Compute nodes mount NFS shares exported directly from the VAST cluster\'s Element Store over the shared storage network.'
+  };
+  return `- **Implications:** ${flatDescByBackend[backend] || 'Manila provisions shares on a single, shared storage interface or pre-provisioned storage servers. Network separation is flat.'} Network separation is flat rather than per-tenant.
 - **Backend Storage Overhead:** Lower setup times, lower cluster CPU overhead. Shares are separated using access control lists (export rules or CephX keys) rather than direct virtual networking boundaries.
 - **Best Use Case:** Single-tenant private cloud, or highly cooperative internal team deployments.`;
-  }
 }
 
 function generateK8sVelero(inputs) {
@@ -6096,6 +6164,10 @@ function generateLiveTopologySVG(inputs, computeResult, cephResult) {
   const hasCeph = cinderBackends.includes('ceph') || manilaBackends.includes('cephfs_native') || glanceBackend === 'rbd';
   const hasNetApp = cinderBackends.includes('netapp') || manilaBackends.includes('netapp');
   const hasPowerFlex = cinderBackends.includes('emc');
+  const hasPure = cinderBackends.includes('pure');
+  const hasHpe = cinderBackends.includes('hpe');
+  const hasDellps = cinderBackends.includes('dellps');
+  const hasVast = cinderBackends.includes('vast') || manilaBackends.includes('vast');
   const hasStorageGrid = enableStoragegrid;
 
   // Build storage layout
@@ -6127,6 +6199,42 @@ function generateLiveTopologySVG(inputs, computeResult, cephResult) {
       glow: 'glow-cyan'
     });
   }
+  if (hasPure) {
+    activeStorage.push({
+      id: 'pure',
+      label: 'FlashArray',
+      detail: `${(inputs.pureProto || 'iscsi').toUpperCase()}`,
+      color: '#c026d3',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasHpe) {
+    activeStorage.push({
+      id: 'hpe',
+      label: 'HPE SAN',
+      detail: `${(inputs.hpeProto || 'fc').toUpperCase()}`,
+      color: '#0ea5e9',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasDellps) {
+    activeStorage.push({
+      id: 'dellps',
+      label: inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore',
+      detail: `${(inputs.dellpsProto || 'iscsi').toUpperCase()}`,
+      color: '#f97316',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasVast) {
+    activeStorage.push({
+      id: 'vast',
+      label: 'VAST Cluster',
+      detail: 'NVMe-oF/TCP',
+      color: '#a3e635',
+      glow: 'glow-cyan'
+    });
+  }
   if (hasStorageGrid) {
     activeStorage.push({
       id: 'storagegrid',
@@ -6153,6 +6261,24 @@ function generateLiveTopologySVG(inputs, computeResult, cephResult) {
     storageBlocks.push({ ...activeStorage[1], x: 785, y: 55, w: 140, h: 45, cx: 855, cy: 77 });
     storageBlocks.push({ ...activeStorage[2], x: 625, y: 120, w: 140, h: 45, cx: 695, cy: 142 });
     storageBlocks.push({ ...activeStorage[3], x: 785, y: 120, w: 140, h: 45, cx: 855, cy: 142 });
+  } else if (N >= 5) {
+    // Generic grid fallback (up to 4 cols x 2 rows = 8 blocks) so a 5th+ selected
+    // backend never silently vanishes from the diagram -- box width shrinks to fit.
+    const cols = Math.min(Math.ceil(N / 2), 4);
+    const rows = Math.ceil(N / cols);
+    const boxW = Math.floor(310 / cols) - 10;
+    const boxH = Math.floor(120 / rows) - 10;
+    const gapX = 10, gapY = 10;
+    const rowWidth = cols * boxW + (cols - 1) * gapX;
+    const startX = 775 - rowWidth / 2;
+    const startY = 55;
+    activeStorage.forEach((s, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = startX + col * (boxW + gapX);
+      const y = startY + row * (boxH + gapY);
+      storageBlocks.push({ ...s, x, y, w: boxW, h: boxH, cx: x + boxW / 2, cy: y + boxH / 2 });
+    });
   }
 
   // Start SVG string
@@ -6540,10 +6666,11 @@ const defaultInputs = JSON.parse(JSON.stringify(state.inputs));
 // This is DATA ONLY -- never executed as code, whether loaded locally or fetched from MANIFEST_URL.
 const EMBEDDED_MANIFEST = {
   manifestVersion: 1,
-  generatedAt: '2026-08-14T00:00:00Z',
-  sourceNote: 'Curated snapshot, web-verified as of 2026-08-14.',
+  generatedAt: '2026-09-01T00:00:00Z',
+  sourceNote: 'Curated snapshot, web-verified as of 2026-09-01.',
   openstack: {
     latest: '2026.1',
+    upcoming: { value: '2026.2', codename: 'Hibiscus', slurp: false, expectedGaDate: '2026-09-30', status: 'in-development', notes: 'Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA.' },
     releases: [
       { value: '2026.1', codename: 'Gazpacho', slurp: true, releaseDate: '2026-04-01', status: 'current' },
       { value: '2025.2', codename: 'Flamingo', slurp: false, releaseDate: '2025-10-01', status: 'supported' },
@@ -6568,7 +6695,7 @@ const EMBEDDED_MANIFEST = {
   adjacentProjects: {
     kollaAnsible: 'Actively maintained, tracks the upstream release train.',
     canonicalCharmedOpenstack: 'Actively maintained (classic charms); Canonical steers new small/edge deployments toward Sunbeam (K8s-native) instead.',
-    ceph: 'Current stable: Tentacle (20.2.x). Prior: Squid (19.x), Reef (18.x).',
+    ceph: 'Current stable: Tentacle (20.2.4). SECURITY: 20.2.4/19.2.6 (2026-08-19) is an urgent release fixing 4 CVEs incl. CVE-2025-30156 (CephX auth-bypass) -- patch promptly if on an older point release. Prior: Squid (19.2.6), Reef (18.x).',
     neutronSdn: 'ML2/OVN is the recommended default; ML2/OVS is legacy.'
   },
   compliance: {
@@ -7301,7 +7428,9 @@ function runCalculations() {
     utilizationLimit: state.inputs.utilizationLimit,
     growthBuffer: state.inputs.growthBuffer,
     enableStoragegrid: state.inputs.enableStoragegrid,
-    storagegridCapacityTb: state.inputs.storagegridCapacityTb
+    storagegridCapacityTb: state.inputs.storagegridCapacityTb,
+    mgmtCephStart: state.inputs.mgmtCephStart,
+    mgmtCephEnd: state.inputs.mgmtCephEnd
   });
 
   // 2. Subnet auto-accommodation check
@@ -7405,7 +7534,9 @@ function runCalculations() {
       utilizationLimit: state.inputs.utilizationLimit,
       growthBuffer: state.inputs.growthBuffer,
       enableStoragegrid: state.inputs.enableStoragegrid,
-      storagegridCapacityTb: state.inputs.storagegridCapacityTb
+      storagegridCapacityTb: state.inputs.storagegridCapacityTb,
+      mgmtCephStart: state.inputs.mgmtCephStart,
+      mgmtCephEnd: state.inputs.mgmtCephEnd
     });
   }
 
@@ -7467,6 +7598,11 @@ function runLiveValidation() {
   const ceph = state.results.ceph;
   if (ceph && ceph.cephNodes < 3) {
     warnings.push(`<strong>Storage Quorum Danger:</strong> Ceph requires a minimum of 3 physical storage nodes to guarantee quorum and data replication integrity.`);
+  }
+  if (ceph && ceph.cephIpWarnings && ceph.cephIpWarnings.length > 0) {
+    ceph.cephIpWarnings.forEach(warn => {
+      warnings.push(`<strong>Sizing/IP Warning:</strong> ${warn}`);
+    });
   }
 
   // 2. Glance Registry Pool Discrepancy
@@ -7670,6 +7806,19 @@ function updateUI() {
     bufferDesc.innerHTML = `<span style="color:var(--accent-red)"><strong>CRITICAL SIZING ERROR:</strong> A production HA Ceph cluster requires a minimum of 3 physical storage nodes to guarantee quorum and data replication integrity. Sizing is overriding minimum nodes to 3.</span>`;
   } else {
     bufferDesc.innerHTML = `<strong>Ceph Sizing Matrix:</strong> Calculated <code>${ceph.finalOsdCount}</code> OSDs distributed across <code>${ceph.cephNodes}</code> nodes. Estimated hardware requirements: <strong>${ceph.osdCpuRequirementCores} CPU Cores</strong> and <strong>${ceph.osdRamRequirementGb} GB Memory</strong> for storage daemons.`;
+  }
+
+  // Step 6 (Network Fabric) Outputs
+  const net = state.results.network;
+  if (net) {
+    const totalPortsEl = document.getElementById('calc-total-ports');
+    const switchPortsEl = document.getElementById('calc-switch-ports');
+    const storageBwEl = document.getElementById('calc-storage-bw');
+    const overlayBwEl = document.getElementById('calc-overlay-bw');
+    if (totalPortsEl) totalPortsEl.innerText = `${net.totalPortsRequired} Ports`;
+    if (switchPortsEl) switchPortsEl.innerText = `${net.recommendedSwitchPorts} Ports`;
+    if (storageBwEl) storageBwEl.innerText = `${net.storageFabricBandwidthGbps} Gbps`;
+    if (overlayBwEl) overlayBwEl.innerText = `${net.overlayFabricBandwidthGbps} Gbps`;
   }
 
   // Render Live Logical Topology Diagram
@@ -8167,12 +8316,17 @@ function renderManifestModal() {
   const adjacent = m.adjacentProjects || {};
   const vendors = m.storageVendors || {};
 
+  const upcomingHtml = m.openstack.upcoming
+    ? `<p><strong>Upcoming:</strong> ${m.openstack.upcoming.value} "${m.openstack.upcoming.codename}" -- expected GA ${m.openstack.upcoming.expectedGaDate || 'TBD'} (${m.openstack.upcoming.status || 'in development'}). ${m.openstack.upcoming.notes || ''}</p>`
+    : '';
+
   body.innerHTML = `
     <h4>OpenStack Release Train</h4>
     <table>
       <tr><th>Version</th><th>Codename</th><th>SLURP</th><th>Released</th><th>Status</th></tr>
       ${osRows}
     </table>
+    ${upcomingHtml}
 
     <h4>Red Hat OpenStack</h4>
     <table>

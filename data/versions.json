@@ -1,9 +1,10 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-08-14T00:00:00Z",
-  "sourceNote": "Curated snapshot, web-verified as of 2026-08-14. Refresh via check_for_updates.py or the in-app Check for Updates button.",
+  "generatedAt": "2026-09-01T00:00:00Z",
+  "sourceNote": "Curated snapshot, web-verified as of 2026-09-01. Refresh via check_for_updates.py or the in-app Check for Updates button.",
   "openstack": {
     "latest": "2026.1",
+    "upcoming": { "value": "2026.2", "codename": "Hibiscus", "slurp": false, "expectedGaDate": "2026-09-30", "status": "in-development", "notes": "Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA." },
     "releases": [
       { "value": "2026.1", "codename": "Gazpacho", "slurp": true, "releaseDate": "2026-04-01", "status": "current" },
       { "value": "2025.2", "codename": "Flamingo", "slurp": false, "releaseDate": "2025-10-01", "status": "supported" },
@@ -33,7 +34,12 @@
       "status": "actively maintained, classic machine-charm bundles",
       "notes": "Canonical now steers new small/edge-scale deployments toward Sunbeam (K8s-native, sunbeam cluster bootstrap) instead. Sunbeam is not yet at full outcome parity with classic Charmed OpenStack for large multi-site builds."
     },
-    "ceph": { "current": "Tentacle (20.2.x)", "prior": ["Squid (19.x)", "Reef (18.x)"], "source": "https://docs.ceph.com/en/latest/releases/tentacle/" },
+    "ceph": {
+      "current": "Tentacle (20.2.4)",
+      "prior": ["Squid (19.2.6)", "Reef (18.x)"],
+      "securityNote": "20.2.4 / 19.2.6 (2026-08-19) is an urgent combined security release fixing 4 CVEs, most notably CVE-2025-30156 (AES-CBC/CephX auth-bypass). Introduces a new CephX key type (aes256k) and a specific key-rotation upgrade procedure; multisite RGW needs an rgw_sigv4_insecure toggle during upgrade. Any Ceph-backed deployment on an older point release should patch to this promptly.",
+      "source": "https://ceph.io/en/news/blog/2026/v20-2-4-v19-2-6-combo-released/"
+    },
     "neutronSdn": { "recommended": "ML2/OVN", "legacy": "ML2/OVS", "notes": "OVN has been the recommended default since the Xena/Yoga era; OVS is legacy." }
   },
   "compliance": {

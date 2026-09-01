@@ -155,10 +155,11 @@ const defaultInputs = JSON.parse(JSON.stringify(state.inputs));
 // This is DATA ONLY -- never executed as code, whether loaded locally or fetched from MANIFEST_URL.
 const EMBEDDED_MANIFEST = {
   manifestVersion: 1,
-  generatedAt: '2026-08-14T00:00:00Z',
-  sourceNote: 'Curated snapshot, web-verified as of 2026-08-14.',
+  generatedAt: '2026-09-01T00:00:00Z',
+  sourceNote: 'Curated snapshot, web-verified as of 2026-09-01.',
   openstack: {
     latest: '2026.1',
+    upcoming: { value: '2026.2', codename: 'Hibiscus', slurp: false, expectedGaDate: '2026-09-30', status: 'in-development', notes: 'Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA.' },
     releases: [
       { value: '2026.1', codename: 'Gazpacho', slurp: true, releaseDate: '2026-04-01', status: 'current' },
       { value: '2025.2', codename: 'Flamingo', slurp: false, releaseDate: '2025-10-01', status: 'supported' },
@@ -183,7 +184,7 @@ const EMBEDDED_MANIFEST = {
   adjacentProjects: {
     kollaAnsible: 'Actively maintained, tracks the upstream release train.',
     canonicalCharmedOpenstack: 'Actively maintained (classic charms); Canonical steers new small/edge deployments toward Sunbeam (K8s-native) instead.',
-    ceph: 'Current stable: Tentacle (20.2.x). Prior: Squid (19.x), Reef (18.x).',
+    ceph: 'Current stable: Tentacle (20.2.4). SECURITY: 20.2.4/19.2.6 (2026-08-19) is an urgent release fixing 4 CVEs incl. CVE-2025-30156 (CephX auth-bypass) -- patch promptly if on an older point release. Prior: Squid (19.2.6), Reef (18.x).',
     neutronSdn: 'ML2/OVN is the recommended default; ML2/OVS is legacy.'
   },
   compliance: {
@@ -916,7 +917,9 @@ function runCalculations() {
     utilizationLimit: state.inputs.utilizationLimit,
     growthBuffer: state.inputs.growthBuffer,
     enableStoragegrid: state.inputs.enableStoragegrid,
-    storagegridCapacityTb: state.inputs.storagegridCapacityTb
+    storagegridCapacityTb: state.inputs.storagegridCapacityTb,
+    mgmtCephStart: state.inputs.mgmtCephStart,
+    mgmtCephEnd: state.inputs.mgmtCephEnd
   });
 
   // 2. Subnet auto-accommodation check
@@ -1020,7 +1023,9 @@ function runCalculations() {
       utilizationLimit: state.inputs.utilizationLimit,
       growthBuffer: state.inputs.growthBuffer,
       enableStoragegrid: state.inputs.enableStoragegrid,
-      storagegridCapacityTb: state.inputs.storagegridCapacityTb
+      storagegridCapacityTb: state.inputs.storagegridCapacityTb,
+      mgmtCephStart: state.inputs.mgmtCephStart,
+      mgmtCephEnd: state.inputs.mgmtCephEnd
     });
   }
 
@@ -1082,6 +1087,11 @@ function runLiveValidation() {
   const ceph = state.results.ceph;
   if (ceph && ceph.cephNodes < 3) {
     warnings.push(`<strong>Storage Quorum Danger:</strong> Ceph requires a minimum of 3 physical storage nodes to guarantee quorum and data replication integrity.`);
+  }
+  if (ceph && ceph.cephIpWarnings && ceph.cephIpWarnings.length > 0) {
+    ceph.cephIpWarnings.forEach(warn => {
+      warnings.push(`<strong>Sizing/IP Warning:</strong> ${warn}`);
+    });
   }
 
   // 2. Glance Registry Pool Discrepancy
@@ -1285,6 +1295,19 @@ function updateUI() {
     bufferDesc.innerHTML = `<span style="color:var(--accent-red)"><strong>CRITICAL SIZING ERROR:</strong> A production HA Ceph cluster requires a minimum of 3 physical storage nodes to guarantee quorum and data replication integrity. Sizing is overriding minimum nodes to 3.</span>`;
   } else {
     bufferDesc.innerHTML = `<strong>Ceph Sizing Matrix:</strong> Calculated <code>${ceph.finalOsdCount}</code> OSDs distributed across <code>${ceph.cephNodes}</code> nodes. Estimated hardware requirements: <strong>${ceph.osdCpuRequirementCores} CPU Cores</strong> and <strong>${ceph.osdRamRequirementGb} GB Memory</strong> for storage daemons.`;
+  }
+
+  // Step 6 (Network Fabric) Outputs
+  const net = state.results.network;
+  if (net) {
+    const totalPortsEl = document.getElementById('calc-total-ports');
+    const switchPortsEl = document.getElementById('calc-switch-ports');
+    const storageBwEl = document.getElementById('calc-storage-bw');
+    const overlayBwEl = document.getElementById('calc-overlay-bw');
+    if (totalPortsEl) totalPortsEl.innerText = `${net.totalPortsRequired} Ports`;
+    if (switchPortsEl) switchPortsEl.innerText = `${net.recommendedSwitchPorts} Ports`;
+    if (storageBwEl) storageBwEl.innerText = `${net.storageFabricBandwidthGbps} Gbps`;
+    if (overlayBwEl) overlayBwEl.innerText = `${net.overlayFabricBandwidthGbps} Gbps`;
   }
 
   // Render Live Logical Topology Diagram
@@ -1782,12 +1805,17 @@ function renderManifestModal() {
   const adjacent = m.adjacentProjects || {};
   const vendors = m.storageVendors || {};
 
+  const upcomingHtml = m.openstack.upcoming
+    ? `<p><strong>Upcoming:</strong> ${m.openstack.upcoming.value} "${m.openstack.upcoming.codename}" -- expected GA ${m.openstack.upcoming.expectedGaDate || 'TBD'} (${m.openstack.upcoming.status || 'in development'}). ${m.openstack.upcoming.notes || ''}</p>`
+    : '';
+
   body.innerHTML = `
     <h4>OpenStack Release Train</h4>
     <table>
       <tr><th>Version</th><th>Codename</th><th>SLURP</th><th>Released</th><th>Status</th></tr>
       ${osRows}
     </table>
+    ${upcomingHtml}
 
     <h4>Red Hat OpenStack</h4>
     <table>

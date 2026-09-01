@@ -441,8 +441,10 @@ select:focus {
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  row-gap: 0.75rem;
   z-index: 100;
 }
 
@@ -465,6 +467,7 @@ select:focus {
 
 .wizard-nav-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 

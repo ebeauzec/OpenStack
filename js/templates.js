@@ -49,6 +49,8 @@ export function getComplianceComments(inputs, service) {
       comments += `#   - Backup & recovery domain: Backup & DR replication is ${(inputs.enableCinderBackup === 'true' && inputs.enableCinderReplication) ? 'configured. Bandwidth/RTT constraints verified.' : 'NOT fully configured (Non-Compliant - Action Required).'}\n`;
     } else if (service === 'neutron') {
       comments += `#   - Logging & monitoring domain: Log forwarding shipping all Neutron API/state events to SIEM IP ${inputs.siemIp || '10.10.99.100'}.\n`;
+    } else if (service === 'siem') {
+      comments += `#   - Logging & monitoring domain: this host is the central SIEM aggregation target for Keystone, Nova, Cinder, Manila, Neutron, and auditd events across the deployment.\n`;
     } else if (service === 'ceph') {
       comments += `#   - Data & information protection domain: Ceph replication pool size set to 3 (Min replication of 3 is mandated for data durability).\n`;
     }
@@ -611,6 +613,7 @@ export function generateAnsible(inputs, computeResult, cephResult) {
     cinderBackends = ['ceph'],
     manilaBackends = ['cephfs_native'],
     enableStoragegrid = false,
+    glanceBackend = 'rbd',
     openstackVersion = '2024.1'
   } = inputs;
 
@@ -693,7 +696,7 @@ enable_manila_backend_netapp: "${manilaBackends.includes('netapp') ? 'yes' : 'no
 enable_manila_backend_vast: "${manilaBackends.includes('vast') ? 'yes' : 'no'}"
 
 # Glance Object Backend Selection
-glance_backend_s3: "${enableStoragegrid ? 'yes' : 'no'}"
+glance_backend_s3: "${glanceBackend === 's3' ? 'yes' : 'no'}"
 
 # Logging & External SIEM Forwarding
 enable_central_logging: "yes"
@@ -1575,7 +1578,7 @@ export function generateSIEMConf(inputs) {
     compliance = []
   } = inputs;
 
-  return `${getComplianceComments(inputs, 'neutron')}# /etc/rsyslog.d/99-openstack-siem.conf
+  return `${getComplianceComments(inputs, 'siem')}# /etc/rsyslog.d/99-openstack-siem.conf
 module(load="imfile")
 template(name="SIEMFormat" type="string" string="<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME%[%PROCID%]: %msg%\\n")
 
@@ -2364,19 +2367,49 @@ function getCinderBackendHldDescription(backend, inputs) {
     return `- **Architecture Choice:** Dell EMC PowerFlex software-defined storage.
 - **Protocol:** Custom SDC block driver.
 - **Advantages:** Massively parallel block distribution, millisecond latency profiles, linear scale-out and enterprise multi-pathing natively handled by the Storage Data Client daemon on compute nodes.`;
+  } else if (backend === 'pure') {
+    return `- **Architecture Choice:** Pure Storage FlashArray, all-flash array.
+- **Protocol:** \`${(inputs.pureProto || 'iscsi').toUpperCase()}\` via the official upstream Pure Cinder driver.
+- **Efficiency:** Deduplication and compression run continuously at the array controller level; not driver-toggled.
+- **Advantages:** Consistent low-latency all-flash performance, ActiveCluster stretched-pod synchronous replication for HA/DR.`;
+  } else if (backend === 'hpe') {
+    const hpeWsapiPort = (inputs.hpePlatform || 'primera_alletra') === '3par' ? 8080 : 443;
+    return `- **Architecture Choice:** HPE ${(inputs.hpePlatform || 'primera_alletra') === '3par' ? '3PAR' : 'Primera / Alletra 9k / Alletra MP'} enterprise SAN.
+- **Protocol:** \`${(inputs.hpeProto || 'fc').toUpperCase()}\`, control-plane provisioning via the array's WSAPI (port ${hpeWsapiPort}).
+- **Advantages:** "Peer Persistence" synchronous replication with quorum witness for transparent host failover.`;
+  } else if (backend === 'dellps') {
+    const isPowerMax = inputs.dellpsPlatform === 'powermax';
+    return `- **Architecture Choice:** Dell ${isPowerMax ? 'PowerMax' : 'PowerStore'} ${isPowerMax ? 'mainframe-class' : 'unified'} SAN (distinct from Dell EMC PowerFlex).
+- **Protocol:** \`${(inputs.dellpsProto || 'iscsi').toUpperCase()}\`${isPowerMax ? ', managed via Unisphere for PowerMax rather than the array directly' : ', direct-to-array REST gateway'}.
+- **Advantages:** ${isPowerMax ? 'SRDF Synchronous/Asynchronous/Metro replication.' : 'Always-on thin provisioning and compression; Metro volume active/active clustering.'}`;
+  } else if (backend === 'vast') {
+    return `- **Architecture Choice:** VAST Data Universal Storage platform.
+- **Protocol:** NVMe-oF/TCP via the official upstream VAST Cinder driver, managed through the cluster's VMS API.
+- **Advantages:** Only backend in this design with both an official Cinder block driver and Manila NFS driver from a single management plane.`;
   }
+  return `- **Architecture Choice:** ${backend.toUpperCase()} (custom/unrecognized backend key — verify configuration manually).`;
 }
 
 function getManilaDhssHldDescription(dhss, backend) {
+  if ((backend === 'cephfs_native' || backend === 'cephfs_ganesha' || backend === 'vast') && dhss === 'true') {
+    return `- **Implications:** **Incompatible.** ${backend === 'vast' ? 'VAST Data\'s' : 'The native CephFS'} Manila driver only supports \`driver_handles_share_servers = False\` — it cannot dynamically provision Share Servers. Set DHSS to False in Step 4 for this backend, or switch to NetApp ONTAP if DHSS=True isolation is required.
+- **Backend Storage Overhead:** N/A while misconfigured — resolve the DHSS setting first.
+- **Best Use Case:** N/A until resolved.`;
+  }
   if (dhss === 'true') {
     return `- **Implications:** Manila dynamically deploys Share Servers (e.g. NetApp SVMs) directly inside the tenant's Neutron private networks. This guarantees complete isolation at the IP layer (DESC compliant).
 - **Backend Storage Overhead:** Storage backend must support automated SVM generation and dynamic IP interface bindings. High overhead per tenant, but satisfies security isolation (e.g., PCI-DSS/HIPAA).
 - **Best Use Case:** Public clouds serving multiple untrusted enterprise clients.`;
-  } else {
-    return `- **Implications:** Manila provisions shares on a single, shared storage interface or pre-provisioned storage servers (e.g., single SVM or native CephFS cluster). Network separation is flat.
+  }
+  const flatDescByBackend = {
+    cephfs_native: 'Compute nodes mount CephFS directly via the kernel/FUSE client; tenant isolation relies on CephX auth keys scoped per share.',
+    cephfs_ganesha: 'Compute nodes mount NFS shares served by an NFS-Ganesha gateway proxying CephFS, hiding the Ceph network behind a standard NFS interface.',
+    netapp: 'Manila creates export paths on a single pre-existing, shared ONTAP SVM rather than provisioning one per tenant.',
+    vast: 'Compute nodes mount NFS shares exported directly from the VAST cluster\'s Element Store over the shared storage network.'
+  };
+  return `- **Implications:** ${flatDescByBackend[backend] || 'Manila provisions shares on a single, shared storage interface or pre-provisioned storage servers. Network separation is flat.'} Network separation is flat rather than per-tenant.
 - **Backend Storage Overhead:** Lower setup times, lower cluster CPU overhead. Shares are separated using access control lists (export rules or CephX keys) rather than direct virtual networking boundaries.
 - **Best Use Case:** Single-tenant private cloud, or highly cooperative internal team deployments.`;
-  }
 }
 
 export function generateK8sVelero(inputs) {
@@ -2723,6 +2756,10 @@ export function generateLiveTopologySVG(inputs, computeResult, cephResult) {
   const hasCeph = cinderBackends.includes('ceph') || manilaBackends.includes('cephfs_native') || glanceBackend === 'rbd';
   const hasNetApp = cinderBackends.includes('netapp') || manilaBackends.includes('netapp');
   const hasPowerFlex = cinderBackends.includes('emc');
+  const hasPure = cinderBackends.includes('pure');
+  const hasHpe = cinderBackends.includes('hpe');
+  const hasDellps = cinderBackends.includes('dellps');
+  const hasVast = cinderBackends.includes('vast') || manilaBackends.includes('vast');
   const hasStorageGrid = enableStoragegrid;
 
   // Build storage layout
@@ -2754,6 +2791,42 @@ export function generateLiveTopologySVG(inputs, computeResult, cephResult) {
       glow: 'glow-cyan'
     });
   }
+  if (hasPure) {
+    activeStorage.push({
+      id: 'pure',
+      label: 'FlashArray',
+      detail: `${(inputs.pureProto || 'iscsi').toUpperCase()}`,
+      color: '#c026d3',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasHpe) {
+    activeStorage.push({
+      id: 'hpe',
+      label: 'HPE SAN',
+      detail: `${(inputs.hpeProto || 'fc').toUpperCase()}`,
+      color: '#0ea5e9',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasDellps) {
+    activeStorage.push({
+      id: 'dellps',
+      label: inputs.dellpsPlatform === 'powermax' ? 'PowerMax' : 'PowerStore',
+      detail: `${(inputs.dellpsProto || 'iscsi').toUpperCase()}`,
+      color: '#f97316',
+      glow: 'glow-cyan'
+    });
+  }
+  if (hasVast) {
+    activeStorage.push({
+      id: 'vast',
+      label: 'VAST Cluster',
+      detail: 'NVMe-oF/TCP',
+      color: '#a3e635',
+      glow: 'glow-cyan'
+    });
+  }
   if (hasStorageGrid) {
     activeStorage.push({
       id: 'storagegrid',
@@ -2780,6 +2853,24 @@ export function generateLiveTopologySVG(inputs, computeResult, cephResult) {
     storageBlocks.push({ ...activeStorage[1], x: 785, y: 55, w: 140, h: 45, cx: 855, cy: 77 });
     storageBlocks.push({ ...activeStorage[2], x: 625, y: 120, w: 140, h: 45, cx: 695, cy: 142 });
     storageBlocks.push({ ...activeStorage[3], x: 785, y: 120, w: 140, h: 45, cx: 855, cy: 142 });
+  } else if (N >= 5) {
+    // Generic grid fallback (up to 4 cols x 2 rows = 8 blocks) so a 5th+ selected
+    // backend never silently vanishes from the diagram -- box width shrinks to fit.
+    const cols = Math.min(Math.ceil(N / 2), 4);
+    const rows = Math.ceil(N / cols);
+    const boxW = Math.floor(310 / cols) - 10;
+    const boxH = Math.floor(120 / rows) - 10;
+    const gapX = 10, gapY = 10;
+    const rowWidth = cols * boxW + (cols - 1) * gapX;
+    const startX = 775 - rowWidth / 2;
+    const startY = 55;
+    activeStorage.forEach((s, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const x = startX + col * (boxW + gapX);
+      const y = startY + row * (boxH + gapY);
+      storageBlocks.push({ ...s, x, y, w: boxW, h: boxH, cx: x + boxW / 2, cy: y + boxH / 2 });
+    });
   }
 
   // Start SVG string
