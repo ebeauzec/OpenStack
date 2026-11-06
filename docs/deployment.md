@@ -2,6 +2,8 @@
 
 This document expands on the step-by-step installation guides the configurator generates for Kolla-Ansible, Canonical Charmed OpenStack, and Red Hat OpenStack Services on OpenShift (RHOSO) / RHOSP platforms. The commands below match the tool's own Step 7 "Deployment Guide" output — this document adds prerequisites, context, and troubleshooting notes the generated guide keeps terse.
 
+**A hardware prerequisite that applies regardless of distribution:** if Confidential Computing is enabled in Step 2 (OpenStack 2026.2 "Hibiscus"/Nova 34.0.0+), every compute host must have AMD SEV-SNP or Intel TDX enabled in firmware/BIOS *before* the distro-specific steps below — Nova's libvirt driver detects and exposes the capability at compute-service startup, so a host that doesn't have it enabled in firmware will simply never offer the trait, with no explicit deployment-time error pointing back at the BIOS setting. The generated `nova.conf` carries the flavor/image trait commands to apply once hosts are up; see the **Confidential Computing** tooltip in Step 2 for the exact trait names.
+
 ---
 
 ## 1. Kolla-Ansible (Vanilla / Containerized)
@@ -41,7 +43,7 @@ source /etc/kolla/admin-openrc.sh
 ### C. Common issues
 
 - **`prechecks` fails on a storage backend port check** — if you selected a non-Ceph Cinder/Manila backend (Pure, HPE, Dell, VAST, NetApp, PowerFlex), Kolla-Ansible has no built-in role for most of these; the generated `globals.yml` flags them as sizing metadata only. Inject the actual driver stanza (from the **cinder.conf** / **manila.conf** tabs) via `/etc/kolla/config/cinder/cinder-volume.conf` config overrides, per Kolla-Ansible's [custom config documentation](https://docs.openstack.org/kolla-ansible/latest/admin/advanced-configuration.html).
-- **`openstack_release` mismatch** — the generated `globals.yml` pins `openstack_release` to the exact OpenStack version selected in Step 1 (e.g. `2026.1`); make sure your `kolla-ansible` pip package version matches, since a mismatched control-plane/tooling version pairing is a common source of deploy failures.
+- **`openstack_release` mismatch** — the generated `globals.yml` pins `openstack_release` to the exact OpenStack version selected in Step 1 (e.g. `2026.2`); make sure your `kolla-ansible` pip package version matches, since a mismatched control-plane/tooling version pairing is a common source of deploy failures.
 
 ---
 

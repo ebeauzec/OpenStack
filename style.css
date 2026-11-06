@@ -15,26 +15,29 @@
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-border-focus: rgba(240, 31, 38, 0.45);
   
-  /* Accent Colors */
+  /* Accent Colors -- this theme is intentionally monochrome red/maroon.
+     (--accent-cyan and --accent-blue used to exist here as separate
+     variables, but both held the exact same values as --openstack-red
+     and --accent-red respectively -- i.e. they were never actually cyan
+     or blue, just duplicate aliases with misleading names. Removed in
+     favor of referencing --openstack-red/--accent-red directly.) */
   --openstack-red: #f01f26;
-  --accent-cyan: #f01f26;
-  --accent-blue: #ff5e62;
-  --accent-purple: #960f12;
+  --accent-maroon: #960f12;
   --accent-green: #00fe9c;
   --accent-yellow: #ffe066;
   --accent-red: #ff5e62;
-  
+
   /* Text Colors */
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
-  --text-cyan: #ffe3e3;
-  
+  --text-blush: #ffe3e3;
+
   --font-main: 'Outfit', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
-  
-  --shadow-glow-cyan: 0 0 15px rgba(240, 31, 38, 0.25);
-  --shadow-glow-blue: 0 0 15px rgba(255, 94, 98, 0.25);
-  --shadow-glow-purple: 0 0 20px rgba(150, 15, 18, 0.3);
+
+  --shadow-glow-red: 0 0 15px rgba(240, 31, 38, 0.25);
+  --shadow-glow-red-bright: 0 0 15px rgba(255, 94, 98, 0.25);
+  --shadow-glow-maroon: 0 0 20px rgba(150, 15, 18, 0.3);
 }
 
 * {
@@ -68,7 +71,7 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-blue);
+  background: var(--accent-red);
 }
 
 /* App Container Layout */
@@ -100,7 +103,7 @@ body {
 .brand h1 {
   font-size: 1.6rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+  background: linear-gradient(135deg, var(--openstack-red), var(--accent-red));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
@@ -141,7 +144,7 @@ body {
 .step-item.active {
   background: rgba(240, 31, 38, 0.06);
   border: 1px solid rgba(240, 31, 38, 0.15);
-  box-shadow: var(--shadow-glow-cyan);
+  box-shadow: var(--shadow-glow-red);
 }
 
 .step-item.completed .step-number {
@@ -166,8 +169,8 @@ body {
 }
 
 .step-item.active .step-number {
-  border-color: var(--accent-cyan);
-  color: var(--accent-cyan);
+  border-color: var(--openstack-red);
+  color: var(--openstack-red);
   background: rgba(240, 31, 38, 0.1);
 }
 
@@ -293,7 +296,7 @@ label {
 
 .label-info {
   cursor: help;
-  color: var(--accent-cyan);
+  color: var(--openstack-red);
   font-size: 0.85rem;
 }
 
@@ -317,7 +320,7 @@ select {
 input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus {
-  border-color: var(--accent-cyan);
+  border-color: var(--openstack-red);
   box-shadow: 0 0 10px rgba(240, 31, 38, 0.15);
 }
 
@@ -345,7 +348,7 @@ select:focus {
 }
 
 .checkbox-tile input {
-  accent-color: var(--accent-cyan);
+  accent-color: var(--openstack-red);
 }
 
 /* Sizing Stats Panel (Sticky/Summary) */
@@ -363,7 +366,7 @@ select:focus {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 1.25rem;
-  color: var(--accent-cyan);
+  color: var(--openstack-red);
   border-bottom: 1px solid rgba(240, 31, 38, 0.1);
   padding-bottom: 0.5rem;
   display: flex;
@@ -510,10 +513,10 @@ select:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+  background: linear-gradient(135deg, var(--openstack-red), var(--accent-red));
   border: none;
   color: #0b0f19;
-  box-shadow: var(--shadow-glow-cyan);
+  box-shadow: var(--shadow-glow-red);
 }
 
 .btn-primary:hover {
@@ -548,12 +551,12 @@ select:focus {
 }
 
 .backend-card:hover {
-  border-color: var(--accent-blue);
+  border-color: var(--accent-red);
   background: rgba(45, 45, 50, 0.4);
 }
 
 .backend-card.selected {
-  border-color: var(--accent-cyan);
+  border-color: var(--openstack-red);
   background: rgba(240, 31, 38, 0.05);
   box-shadow: 0 0 12px rgba(240, 31, 38, 0.15);
 }
@@ -574,8 +577,8 @@ select:focus {
 }
 
 .backend-card.selected .backend-dot {
-  background: var(--accent-cyan);
-  box-shadow: 0 0 8px var(--accent-cyan);
+  background: var(--openstack-red);
+  box-shadow: 0 0 8px var(--openstack-red);
 }
 
 .backend-desc {
@@ -605,7 +608,7 @@ select:focus {
 .diagram-title {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text-cyan);
+  color: var(--text-blush);
   align-self: flex-start;
   display: flex;
   align-items: center;
@@ -637,8 +640,8 @@ select:focus {
 }
 
 .flow-node.active {
-  border-color: var(--accent-cyan);
-  box-shadow: var(--shadow-glow-cyan);
+  border-color: var(--openstack-red);
+  box-shadow: var(--shadow-glow-red);
 }
 
 .flow-node-title {
@@ -671,7 +674,7 @@ select:focus {
 }
 
 .flow-node.active ~ .flow-connections .flow-path.active {
-  stroke: var(--accent-cyan);
+  stroke: var(--openstack-red);
   stroke-width: 3;
   stroke-dasharray: none;
   animation: flowMove 1.5s linear infinite;
@@ -726,9 +729,9 @@ select:focus {
 .tab-btn.active {
   background: rgba(79, 172, 254, 0.08);
   border-color: rgba(79, 172, 254, 0.15);
-  color: var(--accent-blue);
+  color: var(--accent-red);
   font-weight: 500;
-  box-shadow: var(--shadow-glow-blue);
+  box-shadow: var(--shadow-glow-red-bright);
 }
 
 .results-display {
@@ -755,7 +758,7 @@ select:focus {
 .display-title {
   font-size: 0.85rem;
   font-family: var(--font-mono);
-  color: var(--accent-cyan);
+  color: var(--openstack-red);
 }
 
 .action-bar {
@@ -808,7 +811,7 @@ select:focus {
   font-size: 1.5rem;
   border-bottom: 1px solid var(--glass-border);
   padding-bottom: 0.4rem;
-  color: var(--accent-cyan);
+  color: var(--openstack-red);
 }
 
 .markdown-rendered h2 {
@@ -879,7 +882,7 @@ select:focus {
 .markdown-rendered th {
   background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
-  color: var(--text-cyan);
+  color: var(--text-blush);
 }
 
 .markdown-rendered tr:nth-child(even) {
@@ -901,8 +904,8 @@ select:focus {
   bottom: 2rem;
   right: 2rem;
   background: rgba(13, 20, 35, 0.9);
-  border: 1px solid var(--accent-cyan);
-  box-shadow: var(--shadow-glow-cyan);
+  border: 1px solid var(--openstack-red);
+  box-shadow: var(--shadow-glow-red);
   padding: 1rem 1.5rem;
   border-radius: 8px;
   z-index: 999;
@@ -923,7 +926,7 @@ select:focus {
 }
 
 .toast-icon {
-  color: var(--accent-cyan);
+  color: var(--openstack-red);
 }
 
 /* Version & Compliance Reference / Update Check Modal */

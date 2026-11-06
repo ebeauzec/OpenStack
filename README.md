@@ -52,7 +52,8 @@ It runs entirely in the browser. There is no backend, no database, and no instal
   See the full mapping in [Compliance & Validation Engine](docs/compliance.md).
 * **Save/Load configuration state** — export the entire input set to a `.json` file and reload it instantly to resume or share a sizing session.
 * **Import from a live cloud** — the companion [export_from_cloud.py](export_from_cloud.py) script authenticates to an existing OpenStack cloud (same `OS_*` env as the `openstack` CLI) and writes a Load-Config-ready JSON snapshot of its real compute/Cinder/Manila/Neutron inventory, for modelling changes against the as-built environment. No live connection or credentials ever reach the browser page — only the resulting JSON file does, through the same Load Config button above. Ships with a `--mock` mode and a generated `*_import_report.md` that spells out exactly what was discovered vs. assumed.
-* **Automated exporters** — generates a technical proposal, High-Level Design (HLD), Low-Level Design (LLD), a **Hardware Bill of Materials**, a **Staging Validation & Go-Live Checklist**, and deployment-ready `nova.conf`, `neutron.conf`, `keystone.conf`, `glance.conf`, `cinder.conf`, `manila.conf`, `ceph.conf`, an rsyslog SIEM config, plus Kolla-Ansible inventory/`globals.yml`, a Juju `bundle.yaml`, RHOSP/RHOSO templates, and Kubernetes Cinder-CSI/cloud-config/Velero manifests.
+* **Confidential Computing** — an AMD SEV-SNP / Intel TDX toggle in Step 2 (OpenStack 2026.2 "Hibiscus"/Nova 34.0.0+), flowing into the generated `nova.conf`'s flavor/image trait guidance, the HLD, and the live compliance narrative for sovereign, financial, and healthcare profiles.
+* **Automated exporters** — generates a technical proposal, High-Level Design (HLD), Low-Level Design (LLD), a **Hardware Bill of Materials**, a **Staging Validation & Go-Live Checklist**, and deployment-ready `nova.conf`, `neutron.conf`, `keystone.conf`, `glance.conf`, `cinder.conf`, `manila.conf`, `ceph.conf`, an rsyslog SIEM config, plus Kolla-Ansible inventory/`globals.yml`, a Juju `bundle.yaml`, RHOSP/RHOSO templates, and Kubernetes Cinder-CSI/cloud-config/Velero manifests. The Proposal, HLD, LLD, BOM, Deployment Guide, and Validation Checklist share a common Document Control header, and the Proposal carries a Risk Register, Service Level Objectives, a Glossary, and an Acceptance & Sign-off block — built as one coherent issued document package, not six independent fragments.
 * **Hardware Bill of Materials** — turns the sizing engine's output into a procurement-ready spec: node counts, per-tier CPU/RAM/disk specs, external storage array capacity per vendor, and network switch port/bandwidth requirements — the same numbers as the Proposal document, in a form that leaves the architect's hands and goes to a hardware vendor.
 * **Staging Validation & Go-Live Checklist** — a backend-aware test plan (not a generic OpenStack checklist) that only lists tests relevant to what you actually selected: a Ceph OSD failure drill only appears if Ceph is in use, a VAST Data NVMe-oF path failure test only if VAST is selected, a Velero restore test only if K8s+Velero is enabled, and so on — with explicit **Gap** items when a compliance-relevant control (Barbican, Cinder Backup) isn't yet configured.
 * **Downloadable topology diagram** — the live logical topology SVG can be exported as a standalone, self-contained `.svg` file directly from Step 1/2's diagram panel, for dropping into a proposal deck or architecture doc.
@@ -145,13 +146,15 @@ Every checked standard adds live, specific validation rules — overcommit ceili
 
 ## 📋 Use cases
 
-Five worked, end-to-end scenarios — real sizing numbers, real generated warnings, and what each profile actually configures differently — live in **[docs/use_cases.md](docs/use_cases.md)**:
+Seven worked, end-to-end scenarios — real sizing numbers, real generated warnings, and what each profile actually configures differently — live in **[docs/use_cases.md](docs/use_cases.md)**:
 
 1. **Financial Services private cloud** — the tool's own default profile: 400 VMs, Ceph-backed, SOC2/PCI-DSS.
 2. **Healthcare & Life Sciences** — HIPAA/GDPR isolation, encryption-at-rest requirements.
 3. **Telecom NFV edge platform** — NESA/IAR-IAS high-availability and zero packet-drop tuning.
 4. **Sovereign Government Cloud** — Saudi NCA CCC + Dubai DESC CSP, 1:1 resource sizing, and the DHSS=True/CephFS conflict the wizard catches automatically.
 5. **Multi-vendor storage design** — combining Ceph, NetApp, Pure Storage, and VAST Data behind one Cinder backend selection, with Kubernetes enabled.
+6. **Confidential computing for a regulated sovereign workload** — AMD SEV-SNP/Intel TDX data-in-use protection layered onto the Sovereign profile.
+7. **Modelling an existing cloud before proposing changes** — using `export_from_cloud.py` to seed the wizard from a real deployment's inventory instead of a greenfield default.
 
 ---
 
@@ -164,7 +167,7 @@ To explore specific architecture and calculation topics in detail, see the struc
 * 🛡️ **[Sovereign Compliance & Validation Engine](docs/compliance.md)** — in-depth criteria for every supported standard and the real-time overcommit/encryption/backup warning bounds.
 * 🗄️ **[Storage Backend Reference](docs/storage_backends.md)** — driver classes, protocols, ports, and example generated config for all seven Cinder/Manila backends.
 * 🚀 **[Production Deployment & Setup Guides](docs/deployment.md)** — step-by-step installation guidelines for Kolla-Ansible, Canonical Charmed OpenStack (and the newer Sunbeam path), and Red Hat OpenStack Services on OpenShift (RHOSO) 18.0.
-* 📋 **[Use Cases & Worked Examples](docs/use_cases.md)** — five end-to-end sizing scenarios with real numbers and generated output.
+* 📋 **[Use Cases & Worked Examples](docs/use_cases.md)** — seven end-to-end sizing scenarios with real numbers and generated output.
 
 ---
 

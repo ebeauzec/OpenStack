@@ -20,18 +20,21 @@ Theme colors, border radii, and background configurations are controlled globall
   --glass-border-focus: rgba(240, 31, 38, 0.45);
 
   --openstack-red: #f01f26;      /* primary accent, echoed throughout the UI */
-  --accent-cyan: #f01f26;
-  --accent-green: #00fe9c;       /* compliant / success state */
-  --accent-yellow: #ffe066;      /* warning state */
+  --accent-maroon: #960f12;
+  --accent-green: #00fe9c;       /* compliant / success state, and the topology's Tunnel path color */
+  --accent-yellow: #ffe066;      /* warning state, and the topology's Control Path color */
   --accent-red: #ff5e62;
 
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
+  --text-blush: #ffe3e3;
 
   --font-main: 'Outfit', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
 }
 ```
+
+This theme is intentionally monochrome red/maroon (plus green and yellow as semantic accent colors) — there is no separate "cyan" or "blue" in it. Earlier revisions had `--accent-cyan` and `--accent-blue` variables that were never actually cyan or blue, just duplicate aliases holding the exact same values as `--openstack-red` and `--accent-red` respectively; they were removed in favor of referencing those two directly, and `--accent-purple`/`--text-cyan` were renamed to `--accent-maroon`/`--text-blush` to match what they actually render. If you're hunting for a color variable and its name doesn't match what you see on screen, check `style.css`'s `:root` block for the current authoritative value rather than trusting the name.
 
 `'Outfit'`/`'Source Code Pro'` are first-preference fonts only — the stylesheet deliberately makes **no** `@import`/remote font fetch, since the standalone build ships to air-gapped environments. Both fonts fall back cleanly to system sans-serif/monospace with no network call either way.
 
@@ -56,7 +59,7 @@ const state = {
   inputs: {
     projectName: 'CSP Cloud Production-West',
     openstackDistro: 'kolla',
-    openstackVersion: '2026.1',
+    openstackVersion: '2026.2',
     // ... ~90 more sizing, storage, network, and compliance parameters
   },
   results: { compute: {}, ceph: {}, network: {} }
@@ -96,9 +99,9 @@ The physical and logical system architecture is visualized dynamically in the bo
 
 ![Multi-vendor topology diagram — four storage backends plus a Kubernetes workload overlay](images/topology-multi-vendor-k8s.svg)
 
-* **Control Path Lines** — drawn as bezier paths connecting the Keystone/Nova/Neutron controller services to the compute plane.
-* **Storage Data Paths** — one animated path per active Cinder/Glance backend, running from the compute plane's Libvirt/QEMU block into the Storage Fabric Tier.
-* **Active Overlay Tunnels** — automatically shifts coloring and protocol names (Geneve vs. VXLAN) based on the active Neutron tunnel configuration.
+* **Control Path Lines** — drawn in **yellow** (Keystone auth, Barbican KMS, Nova-API-to-Libvirt, and the Cinder backup path), deliberately distinct from the Data Path's red and the Tunnel's green; see the diagram's own legend. These three colors used to be two near-identical reds (Control Path and Data Path both traced back to `--accent-cyan`, itself a duplicate of `--openstack-red` — see §1.A above) until that was fixed.
+* **Storage Data Paths** — drawn in **red** with an animated dashed "marching ants" stroke (`flow-path-animated`), one path per active Cinder/Glance backend, running from the compute plane's Libvirt/QEMU block into the Storage Fabric Tier.
+* **Overlay Tunnels** — drawn in **green**, connecting the tenant VM to the local SDN agent and on to the Neutron DBs. The active Neutron tunnel protocol (Geneve vs. VXLAN) is reflected in the generated `neutron.conf`/OVS bootstrap commands, not as a color or label inside this specific diagram.
 * **Kubernetes Workload Overlay** — appears as an additional block inside the Compute Plane container when the K8s sizing overlay is enabled, with a dashed CSI mount path back to the compute node's Libvirt block.
 * **Scaling beyond 4 storage blocks** — the layout has hand-tuned positions for 1–4 simultaneous storage-tier entries (Ceph, NetApp, PowerFlex, StorageGrid were the original four); with the addition of Pure, HPE, Dell PowerStore/PowerMax, and VAST Data, up to 8 backends can now be active simultaneously, so a generic grid-layout fallback (up to 4 columns × 2 rows) takes over for any 5th-and-beyond active backend rather than silently dropping it from the diagram.
 
@@ -128,3 +131,4 @@ The panel's "Check Online for Updates" button is the *only* network call this to
 | [bundle.py](../bundle.py) | Inlines CSS, JS, and `data/versions.json` into one standalone HTML file |
 | [data/versions.json](../data/versions.json) | The version/compliance/storage-driver manifest |
 | [check_for_updates.py](../check_for_updates.py) | Refreshes `data/versions.json` from a machine with internet access |
+| [export_from_cloud.py](../export_from_cloud.py) | Reads a live OpenStack cloud's real inventory over its REST APIs and writes a Load-Config-ready JSON snapshot, for as-built modelling |

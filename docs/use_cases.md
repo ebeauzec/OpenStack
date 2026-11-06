@@ -1,6 +1,6 @@
 # Use Cases & Worked Examples
 
-This document walks through five real scenarios end to end, using the tool's own default inputs (or the specific changes described in each section) and the **actual numbers and warning text the tool generates** — not illustrative approximations. Every figure below was captured from a live run of the application.
+This document walks through seven real scenarios end to end, using the tool's own default inputs (or the specific changes described in each section) and the **actual numbers and warning text the tool generates** — not illustrative approximations. Every figure below was captured from a live run of the application.
 
 ---
 
@@ -168,6 +168,48 @@ vast_vippool_name = cinder-vip-pool
 *(The `admin`/placeholder password strings are intentional — this tool generates a structurally-correct config skeleton for you to fill in with your actual vault-managed secrets, not a config meant to be deployed verbatim.)*
 
 **Why VAST Data is worth calling out specifically:** it's the only backend in this tool's storage matrix (besides Ceph itself) that ships an official upstream driver for *both* Cinder block volumes and Manila file shares from a single management plane (the cluster's VMS API) — see [docs/storage_backends.md](storage_backends.md#vast-data) for the full driver/protocol detail. For a design that wants one storage vendor covering both a Kubernetes CSI PVC tier and a legacy NFS share tier, that's a materially simpler operational story than running two separate arrays.
+
+---
+
+## 6. Confidential computing for a regulated sovereign workload
+
+**Scenario:** The same Sovereign Gov Cloud design from Use Case 4, extended to require attestable data-in-use protection — a Gulf-state agency wants to be able to demonstrate not just encryption-at-rest and in-transit, but that tenant memory itself cannot be inspected by the hypervisor operator.
+
+**Step 2:** Check **Enable Confidential Computing**, then choose **AMD SEV-SNP** (attestation, stronger integrity than the older SEV-ES) or **Intel TDX** (memory encryption) depending on the actual CPU fleet — this requires OpenStack 2026.2 "Hibiscus" / Nova 34.0.0 or later, and compute hosts with the corresponding feature enabled in firmware (see [docs/deployment.md](deployment.md)).
+
+**Live compliance text immediately updates** (actual tool output, Step 1, with Sovereign profile active):
+
+> *"Sovereign Government Cloud enforces Dubai DESC CSP (ISR v3.0) and Saudi NCA CCC-2:2024 directives. Data residency must remain local, 1:1 resource sizing is enforced, and encryption keys must be handled in-country. Rsyslog SIEM forwarding must capture Keystone token modifications, root CLI access executions, and storage access log payloads. Confidential Computing (AMD SEV-SNP, OpenStack 2026.2+) is enabled, providing hardware memory encryption and attestation for data-in-use -- strengthens the case for sovereign, financial, and healthcare data-protection controls."*
+
+**Generated `nova.conf` excerpt** (actual tool output):
+
+```ini
+# CONFIDENTIAL COMPUTING (OpenStack 2026.2 "Hibiscus" / Nova 34.0.0+): AMD SEV-SNP
+# Not a host-wide nova.conf setting -- enabled per flavor/image via trait extra specs:
+#   openstack flavor set <flavor> --property trait:HW_CPU_X86_AMD_SEV=required
+#   openstack image set <image> --property hw_mem_encryption=true
+# Requires compute hosts with AMD SEV-SNP hardware support enabled in firmware/BIOS.
+```
+
+**What this does and doesn't replace:** Confidential Computing is a *data-in-use* control — it sits alongside Barbican (data-at-rest) and TLS (data-in-transit), not instead of either. The HLD's generated Executive Summary and the Step 7 output both carry this line item, but §8 (Risk Register) in the Proposal & Design Document will still flag Barbican or backup being disabled independently — enabling Confidential Computing doesn't clear those other gaps. See [docs/compliance.md](compliance.md#f-confidential-computing-complementary-not-a-substitute-for-the-controls-above) for how the two interact.
+
+---
+
+## 7. Modelling an existing cloud before proposing changes
+
+**Scenario:** A CSP already operates a production OpenStack cloud and wants to use this tool to model a capacity expansion or a storage-vendor migration — not design a greenfield build. Rather than re-entering every setting by hand, they use the companion [export_from_cloud.py](../export_from_cloud.py) script against the real cloud first.
+
+**On a machine with real `openstack` CLI access** (same `OS_*` environment the CLI already uses):
+
+```bash
+python export_from_cloud.py --project-name "Acme Prod Cloud"
+```
+
+This writes two files: `acme_prod_cloud_imported_config.json` (loadable via the wizard's **Load Config** button) and `acme_prod_cloud_import_report.md`, which states exactly what was discovered from the live APIs versus left at defaults — reliably from Nova (hypervisor specs, in-use flavor averages), Cinder/Manila (backend types matched from volume/share-type extra_specs, in-use capacity), and Neutron (OVN vs. ML2/OVS from the agent list); best-effort for CPU/RAM overcommit ratio (via the Placement API, needs admin rights) and subnet role mapping; and explicitly **not** attempted for the OpenStack distro/release codename, the industry/compliance profile, or Ceph's physical OSD layout — none of which any OpenStack API exposes.
+
+**No cloud handy to try this with?** `python export_from_cloud.py --mock --project-name "Mock Demo"` exercises the exact same field-mapping and report logic against built-in synthetic data, so you can see the shape of the output before pointing it at a real environment.
+
+**Step 1 → Load Config → select the generated `*_imported_config.json`.** The wizard now reflects the real cloud's current node specs, storage backends, and capacity as its starting point — from here, change what you're actually proposing (add nodes, swap a storage backend, enable a feature the current deployment lacks) and every downstream document regenerates against the blend of "what's really there" and "what's being proposed," rather than a generic greenfield default.
 
 ---
 

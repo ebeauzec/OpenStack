@@ -104,6 +104,180 @@ function formatPgPools(pools) {
   return pools.map(p => `  - Pool: \`${p.name}\` -> PGs: \`${p.pgCount}\` (${p.pct}% target workload)`).join('\n');
 }
 
+// --------------------------------------------------------------------------
+// Shared "document package" scaffolding, used by every customer-facing
+// markdown deliverable (Proposal, HLD, LLD, BOM, Deployment Guide, Validation
+// Checklist) so the six read as one coherent issued document set rather than
+// six independently-styled fragments. NOT used by the .conf/.yaml/.json
+// infrastructure-as-code outputs -- a "Document Control" header makes no
+// sense on a config file.
+// --------------------------------------------------------------------------
+
+function buildDocumentControlBlock(inputs, docType) {
+  const projectName = inputs.projectName || 'Enterprise OpenStack Cloud';
+  const generatedAt = new Date().toISOString().slice(0, 10);
+  return `| | |
+|---|---|
+| **Document Type** | ${docType} |
+| **Project** | ${projectName} |
+| **Prepared For** | *(customer / stakeholder name)* |
+| **Prepared By** | *(architect name)* |
+| **Generated** | ${generatedAt}, by the OpenStack Sizing, Compliance & Design Configurator |
+| **Status** | Draft -- planning-stage sizing output, not yet field-validated |
+
+*This document is generated from a live sizing session, not a static file -- regenerate it whenever the underlying configuration changes materially.*`;
+}
+
+// Dynamic risk register: every row is driven by the ACTUAL current configuration
+// state (the same signals the in-app live-validation panel already checks), not
+// generic boilerplate. Returns a ready-to-render markdown table, or an explicit
+// "no open risks against our checks" sentence if nothing is flagged.
+function buildRiskRegister(inputs, computeResult, cephResult) {
+  const rows = [];
+  const add = (risk, impact, likelihood, mitigation) => rows.push(`| ${risk} | ${impact} | ${likelihood} | ${mitigation} |`);
+
+  const compliance = inputs.compliance || [];
+  const cinderBackends = inputs.cinderBackends || ['ceph'];
+  const manilaBackends = inputs.manilaBackends || ['cephfs_native'];
+
+  if (!inputs.enableBarbican) {
+    add(
+      'No volume/image encryption-at-rest (Barbican disabled)',
+      compliance.length > 0 ? 'High -- blocks compliance sign-off' : 'Medium',
+      'Certain until remediated',
+      'Enable Barbican KMS in Step 3, especially if any compliance standard is in scope.'
+    );
+  }
+  if (inputs.enableCinderBackup !== 'true') {
+    add(
+      'No automated Cinder volume backup target configured',
+      'High -- unrecoverable data loss on volume corruption or accidental deletion',
+      'Certain until remediated',
+      'Enable Cinder Volume Backup in Step 3 and define a retention policy.'
+    );
+  }
+  if (!inputs.enableCinderReplication) {
+    add(
+      'No cross-site Cinder volume replication (DR) configured',
+      'High for any workload requiring site failover',
+      'Depends on your single-site risk tolerance',
+      'Enable Cinder Volume Replication in Step 3 if a secondary site exists, or formally document single-site acceptance.'
+    );
+  }
+  const replicaFactor = inputs.replicaFactor || 3;
+  if (cephBackendUsed(cinderBackends, manilaBackends) && replicaFactor < 3) {
+    add(
+      `Ceph replica factor is ${replicaFactor}, below the conventional minimum of 3`,
+      'High -- reduced fault tolerance; possible data loss on multi-node failure',
+      'Certain until remediated',
+      'Raise the replica factor to at least 3 in Step 5, or formally accept the reduced durability posture.'
+    );
+  }
+  if ((computeResult.finalComputeNodes || 0) > 0 && (inputs.haBuffer || 0) < 1) {
+    add(
+      'HA compute buffer is 0 -- no spare hypervisor capacity for a node failure',
+      'Medium-High -- a single compute node failure can cause placement failures/contention',
+      'Certain until remediated',
+      'Increase the N+X HA Compute Buffer in Step 2.'
+    );
+  }
+  if (inputs.enableK8s && inputs.enableVelero && !inputs.enableStoragegrid) {
+    add(
+      'Kubernetes Velero backup is enabled but no StorageGrid S3 target is provisioned',
+      'High -- Velero has no configured backup destination in this design',
+      'Certain until remediated',
+      'Enable NetApp StorageGrid in Step 6, or supply an external S3-compatible bucket as the Velero BackupStorageLocation.'
+    );
+  }
+  if (inputs.manilaBackends && inputs.manilaBackends.length > 0 && inputs.manilaDhss === 'true' &&
+      inputs.manilaBackends.some(b => b === 'cephfs_native' || b === 'cephfs_ganesha' || b === 'vast')) {
+    add(
+      'Manila DHSS=True is requested alongside a backend that does not support it (CephFS/VAST)',
+      'High -- this configuration cannot deploy as specified',
+      'Certain until remediated',
+      'Switch the conflicting Manila backend to NetApp ONTAP in Step 4, or set DHSS to False.'
+    );
+  }
+
+  if (rows.length === 0) {
+    return 'No open risks identified against this tool\'s standard checks for the current configuration. This reflects the sizing-time configuration only -- re-run this check after any change, and before relying on it for go-live sign-off.';
+  }
+  return `| Risk | Impact | Likelihood | Mitigation |
+|---|---|---|---|
+${rows.join('\n')}`;
+}
+
+// Service Level Objectives: states design *posture* derived from real config
+// (HA buffer, replica factor, replication/backup state), deliberately never
+// fabricates a specific uptime percentage or RPO/RTO minute figure this tool
+// has no basis to assert -- see the closing disclaimer line this returns.
+function buildServiceLevelObjectives(inputs, computeResult, cephResult) {
+  const haBuffer = inputs.haBuffer || 0;
+  const replicaFactor = inputs.replicaFactor || 3;
+  const cinderBackends = inputs.cinderBackends || ['ceph'];
+  const manilaBackends = inputs.manilaBackends || ['cephfs_native'];
+  const isCeph = cephBackendUsed(cinderBackends, manilaBackends);
+  const repl = inputs.enableCinderReplication;
+  const replMode = inputs.cinderReplMode || 'async';
+  const backup = inputs.enableCinderBackup === 'true';
+
+  const rpoReplRow = repl
+    ? (replMode === 'sync'
+        ? 'Near-zero (synchronous replication) -- confirm measured write latency stays within your application\'s tolerance; sync replication is distance-limited (~100km / <2ms RTT).'
+        : 'Bounded by your configured asynchronous replication interval -- this tool does not set that interval; confirm it against your actual DR runbook, not this document.')
+    : 'Not defined -- no cross-site Cinder replication is configured in this sizing.';
+
+  const rpoBackupRow = backup
+    ? 'Bounded by your configured Cinder backup schedule -- this tool does not set that schedule; define and document it in your backup runbook.'
+    : 'Not defined -- Cinder Volume Backup is disabled in this sizing.';
+
+  const rtoRow = repl
+    ? 'Depends on your documented failover runbook execution time, not purely the replication technology -- validate end-to-end in the Staging Validation & Go-Live Checklist before quoting a number to a customer.'
+    : 'Not defined without replication or a tested backup-restore procedure.';
+
+  return `| Objective | Target / Design Posture | Basis |
+|---|---|---|
+| Control plane availability | 3x HA Controllers, Active/Active clustering | Architectural redundancy -- not a measured or contracted uptime figure |
+| Compute capacity resilience | Tolerates ${haBuffer} simultaneous compute node failure(s) without exceeding sized capacity | N+${haBuffer} HA buffer configured in Step 2 |
+| Storage durability | ${isCeph ? `Survives any single-host failure (CRUSH failure domain = host, replica factor ${replicaFactor})` : 'Per the selected vendor array\'s own RAID/erasure-coding and replication posture -- not computed by this tool'} | ${isCeph ? 'Ceph CRUSH map + replica factor' : 'Vendor array configuration'} |
+| Recovery Point Objective -- replication | ${rpoReplRow} | Step 3 Cinder DR Replication setting |
+| Recovery Point Objective -- backup | ${rpoBackupRow} | Step 3 Cinder Volume Backup setting |
+| Recovery Time Objective | ${rtoRow} | Operational runbook, validated in the Go-Live Checklist |
+
+**This table states design *posture*, not a contracted SLA.** Specific uptime percentages and RPO/RTO numbers belong in a signed Statement of Work once validated against your actual environment -- see the Staging Validation & Go-Live Checklist's Sign-off section before committing to a figure a customer can hold you to.`;
+}
+
+function buildGlossary() {
+  return `| Term | Meaning |
+|---|---|
+| **Nova** | OpenStack Compute service -- manages virtual machine lifecycle on hypervisor hosts. |
+| **Cinder** | OpenStack Block Storage service -- provisions and manages persistent block volumes. |
+| **Manila** | OpenStack Shared File Systems service -- provisions NFS/CIFS-style shared filesystems. |
+| **Glance** | OpenStack Image service -- stores and serves VM boot images. |
+| **Neutron** | OpenStack Networking service -- manages virtual networks, routers, and security groups. |
+| **Keystone** | OpenStack Identity service -- authentication, authorization, and the service catalog. |
+| **Barbican** | OpenStack Key Manager service -- stores and manages encryption keys/secrets. |
+| **DHSS** | Driver Handles Share Servers -- a Manila backend mode where the driver dynamically provisions per-tenant share-server network endpoints (\`True\`) vs. one shared endpoint for all tenants (\`False\`). |
+| **OVN / OVS** | Open Virtual Network / Open vSwitch -- the two Neutron SDN backend architectures this tool supports. |
+| **VTEP** | VXLAN/Geneve Tunnel Endpoint -- the node-local interface that encapsulates tenant overlay traffic. |
+| **OSD** | Ceph Object Storage Daemon -- the process managing one physical disk in a Ceph cluster. |
+| **MON / MGR** | Ceph Monitor / Manager daemons -- cluster quorum and management services (distinct from OSDs). |
+| **PG** | Ceph Placement Group -- a logical shard of a storage pool used to distribute data across OSDs. |
+| **CRUSH** | Ceph's data-placement algorithm; its "failure domain" setting controls how replicas are spread across hosts/racks. |
+| **RBD / CephFS** | RADOS Block Device (Ceph's block storage interface) / Ceph's POSIX-compatible distributed filesystem. |
+| **SDC / SDS** | Storage Data Client / Storage Data Server -- Dell PowerFlex's compute-side and storage-side software components. |
+| **WSAPI** | HPE's Web Services API -- the management/control-plane interface for 3PAR/Primera/Alletra arrays. |
+| **VMS** | VAST Data's management API/plane, shared by its Cinder and Manila drivers. |
+| **SVM** | NetApp ONTAP Storage Virtual Machine -- a logical storage partition/tenant boundary on an ONTAP cluster. |
+| **RPO / RTO** | Recovery Point Objective (how much data you can afford to lose) / Recovery Time Objective (how long recovery can take). |
+| **HA** | High Availability -- redundancy sufficient to tolerate a defined failure without service loss. |
+| **SIEM** | Security Information and Event Management -- the centralized log/audit aggregation target this design forwards events to. |
+| **KMS** | Key Management Service -- see Barbican above. |
+| **CSI / CNI** | Container Storage Interface / Container Network Interface -- the Kubernetes plugin standards this design's K8s overlay uses for Cinder-backed volumes and pod networking, respectively. |
+| **BOM** | Bill of Materials -- the hardware/capacity specification derived from this sizing. |
+| **SLURP** | Skip Level Upgrade Release Process -- an OpenStack release flagged safe to upgrade into directly from two cycles prior, skipping the intermediate one. |`;
+}
+
 function generateIpPlanningTable(inputs, computeResult, cephResult) {
   const compNodes = computeResult.finalComputeNodes || 3;
   const cephNodes = cephResult.cephNodes || 3;
@@ -227,10 +401,12 @@ export function generateHLD(inputs, computeResult, cephResult) {
 **Designed Scale:** ${scaleText[cspScale]}
 **Compliance & Security Baseline:** ${complianceText || 'Standard Security'}
 
+${buildDocumentControlBlock(inputs, 'High-Level Design (HLD)')}
+
 ---
 
 ## 1. Executive Summary
-This document defines the high-level architecture and physical sizing for a production-grade OpenStack cloud deployment. Tailored specifically for Cloud Service Provider (CSP) standards, this design guarantees **99.999% infrastructure availability** by employing a fully redundant control plane (3x Controller nodes in HA), segregated network zones, and enterprise-class multi-backend block, file, and object storage systems.
+This document defines the high-level architecture and physical sizing for a production-grade OpenStack cloud deployment. Tailored specifically for Cloud Service Provider (CSP) standards, this design is **architected for high availability** -- consistent with a 99.999%-class target -- through a fully redundant control plane (3x Controller nodes in HA), segregated network zones, and enterprise-class multi-backend block, file, and object storage systems. See the companion Proposal & Design Document's Service Level Objectives appendix for how that target is substantiated against this specific configuration, and never quote it to a customer as a measured or contracted figure until it's been validated end to end in the Staging Validation & Go-Live Checklist.
 
 ### Sizing and Physical Node Breakdown
 - **Nova Compute Hosts:** \`${computeResult.finalComputeNodes}\` physical hypervisors (includes N+${inputs.haBuffer} HA buffer).
@@ -309,6 +485,11 @@ When Kubernetes integration is active, standard tenant virtual resources are exp
 - **Tenant Control Plane**: 3x HA Master VMs hosted on separate compute hypervisors via Nova server group anti-affinity rules.
 - **Persistent Volume Driver**: Dynamically provisioned via the OpenStack Cinder CSI driver, translating K8s PersistentVolumeClaims (PVCs) into Cinder block devices.
 - **CNI Networking**: Calico configured to route container traffic directly over the Neutron VLAN/overlay interfaces.
+
+---
+
+## 5. Scope & Further Reference
+This HLD describes architecture and sizing derived from the configuration active at generation time -- it is a planning-stage design, not an as-built record. The full business-document scaffolding for this design (Risk Register, Service Level Objectives, Glossary of Terms, and the Acceptance & Sign-off block) lives in the companion **Proposal & Design Document** rather than being duplicated across every generated artifact; see its appendices before this design goes to a customer for approval.
 `;
 }
 
@@ -351,6 +532,8 @@ export function generateLLD(inputs, computeResult, cephResult) {
   return `# Low-Level Design (LLD)
 ## Project: ${projectName}
 **Target Environment:** CSP Highly Available Infrastructure
+
+${buildDocumentControlBlock(inputs, 'Low-Level Design (LLD)')}
 
 ---
 
@@ -608,6 +791,11 @@ ${isCephUsed ? `## 7. Ceph Cluster Storage Architecture & Placement Groups
 For optimal performance, the PG count must match the next power of 2 from the target allocation.
 ${formatPgPools(cephResult.pools)}
 ` : ''}
+
+---
+
+## 8. Scope & Further Reference
+This LLD's compliance mapping (§2) and firewall matrix (§3) reflect this tool's standard control set, not a legal compliance attestation. The full Risk Register, Service Level Objectives, Glossary of Terms, and Acceptance & Sign-off block for this design live in the companion **Proposal & Design Document**.
 `;
 }
 
@@ -700,6 +888,8 @@ export function generateBOM(inputs, computeResult, cephResult, networkResult) {
   return `# Hardware Bill of Materials
 ## Project: ${projectName}
 **Deployment Scale:** ${cspScale} | **Generated from sizing inputs, not vendor quotes -- validate every line before procurement.**
+
+${buildDocumentControlBlock(inputs, 'Hardware Bill of Materials')}
 
 ---
 
@@ -2225,8 +2415,11 @@ Perform these steps on your Undercloud host (Director client node):
   }
 
   return `# Step-by-Step Production Deployment & Hardening Guide
+## Project: ${inputs.projectName || 'Enterprise OpenStack Cloud'}
 
 Follow these steps to deploy and configure all sized components in the designed environment:
+
+${buildDocumentControlBlock(inputs, 'Step-by-Step Production Deployment & Hardening Guide')}
 
 ---
 
@@ -2638,6 +2831,8 @@ export function generateValidationChecklist(inputs, computeResult, cephResult) {
 
 This checklist is generated from your specific sizing configuration -- it only lists tests relevant to the backends, features, and compliance standards you actually selected, not a generic OpenStack checklist. Run every item against a staging environment before any production cutover; this tool's sizing and compliance output are planning-stage estimates, not a substitute for validation (see the license disclaimer in the project README).
 
+${buildDocumentControlBlock(inputs, 'Staging Validation & Go-Live Checklist')}
+
 ---
 
 ## A. Core Compute & Networking
@@ -2976,10 +3171,25 @@ ${vastParts.join('\n')}
 **OpenStack Release:** Release ${openstackVersion}
 **Compliance Level:** ${complianceText}
 
+${buildDocumentControlBlock(inputs, 'Technical Proposal & Architecture Design')}
+
+### Contents
+1. Executive Summary
+2. Infrastructure Advantages & Core Concepts
+3. Storage Integration & Lifecycle
+4. Vendor Storage Architecture & Best Practices
+5. Deployment Implementation Guide
+6. Security Baseline and Regulatory Compliance
+7. Scope & Assumptions
+8. Risk Register
+9. Service Level Objectives
+- Appendix A: Glossary of Terms
+- Appendix B: Acceptance & Sign-off
+
 ---
 
 ## 1. Executive Summary
-This document provides the high-level and low-level architectural design details for a production-grade OpenStack private cloud. Custom-tailored to support **${vmCount} active virtual machines**, the infrastructure guarantees resilience, high-performance workload delivery, and security compliance.
+This document provides the high-level and low-level architectural design details for a production-grade OpenStack private cloud. Custom-tailored to support **${vmCount} active virtual machines**, this design is architected for resilience, high-performance workload delivery, and security compliance -- see §9 (Service Level Objectives) for how those targets are substantiated against this specific configuration, and §8 (Risk Register) for what is not yet covered.
 
 The sized physical hypervisor footprint requires **${computeResult.finalComputeNodes} Nova Compute nodes** and a control plane composed of 3 Controller nodes configured in an Active/Active clustering design. The unified storage fabric is sized to accommodate **${cinderCapacityTb} TB of Cinder block volumes** and **${manilaCapacityTb} TB of Manila share file capacity**.
 
@@ -3046,6 +3256,51 @@ To satisfy the **${complianceText}** requirements, the following baseline config
 * **Barbican Encryption at Rest:** ${enableBarbican ? `Barbican coordinates keys via the **${barbicanBackend.toUpperCase()}** backend to encrypt block volumes, glance images, and ephemeral VM drives.` : '**NOT CONFIGURED.** Barbican volume/image encryption-at-rest is currently disabled in this sizing. Enable it in Step 3 to satisfy encryption-at-rest requirements.'}
 * **Automated Cinder Backups:** ${enableCinderBackup === 'true' ? 'Volume backups are continuously captured and pushed to an offsite S3 backup target.' : '**NOT CONFIGURED.** Cinder Volume Backup is currently disabled in this sizing. Enable it in Step 3 to satisfy backup/disaster-recovery requirements.'}
 * **Centralized Auditing:** API audit trails are forwarded immediately to SIEM to ensure non-repudiation.
+
+---
+
+## 7. Scope & Assumptions
+
+**In scope:** the OpenStack control plane, compute, network, and storage architecture described above, sized from the inputs active when this document was generated; the deployment templates and service configuration files generated alongside it in Step 7; the Hardware Bill of Materials' node counts and capacity figures.
+
+**Out of scope:** hardware/software pricing and licensing (vendor- and contract-specific; see the Hardware Bill of Materials), power/cooling/physical rack and PDU planning, specific switch/router model selection, and any work beyond what the selected OpenStack distribution, storage backends, and compliance standards above describe. This document is a planning-stage design generated from the sizing inputs active at the time -- it is not a signed Statement of Work, a vendor quote, or an as-built record of a deployed system.
+
+**Key assumptions:**
+- Figures in this document assume the sizing inputs (VM count, capacity targets, overcommit ratios, etc.) remain materially accurate between now and deployment. Re-generate this document if they change.
+- Storage vendor capacity, driver support, and replication behavior reflect the official upstream OpenStack Cinder/Manila driver documentation as last verified -- see **Check for Updates** in the running application for when that was, and confirm against your vendor's current documentation before procurement.
+- Every node count and capacity figure here is cross-referenced from the same sizing engine as the Hardware Bill of Materials and HLD/LLD -- there is a single source of truth, not independently-estimated numbers per document.
+
+---
+
+## 8. Risk Register
+
+${buildRiskRegister(inputs, computeResult, cephResult)}
+
+*This register reflects the sizing-time configuration only. Re-run this tool's live Validation Alerts panel (or regenerate this document) after any configuration change, and before relying on it for a go-live decision.*
+
+---
+
+## 9. Service Level Objectives
+
+${buildServiceLevelObjectives(inputs, computeResult, cephResult)}
+
+---
+
+## Appendix A: Glossary of Terms
+
+${buildGlossary()}
+
+---
+
+## Appendix B: Acceptance & Sign-off
+
+| Role | Name | Signature | Date |
+|---|---|---|---|
+| Prepared By (Solutions Architect) | | | |
+| Reviewed By (Technical Lead) | | | |
+| Approved By (Customer Stakeholder) | | | |
+
+Approval of this document authorizes proceeding to procurement (per the Hardware Bill of Materials) and staging deployment (per the Staging Validation & Go-Live Checklist). This document reflects a planning-stage sizing exercise -- see the MIT License and liability disclaimer in the project README for the terms under which this tool's output is provided.
 `;
 }
 

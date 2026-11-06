@@ -102,6 +102,9 @@ This gate is deliberately scoped to Step 4, where the explanation is visible —
 - **Storage Quorum Danger:** Ceph is sized below the 3-node minimum required for quorum.
 - **Glance Pool Mismatch:** Glance is configured for S3/Swift but a nonzero Ceph RBD capacity is still allocated.
 
+### F. Confidential Computing (complementary, not a substitute for the controls above)
+Enabling Confidential Computing in Step 2 (AMD SEV-SNP or Intel TDX, OpenStack 2026.2 "Hibiscus"/Nova 34.0.0+) adds hardware memory encryption and attestation for **data-in-use** — a different protection layer than Barbican's encryption-at-rest or TLS's encryption-in-transit. The live "Selected Profile Impact" text on Step 1 calls this out specifically for sovereign, financial, and healthcare profiles, where attestable data-in-use protection strengthens (but does not replace) the case for those frameworks' cryptography-domain controls. It requires compute hosts with the relevant CPU feature enabled in firmware — this tool cannot detect whether your actual hardware supports it, only that you've asked for it in the sizing; see [docs/deployment.md](deployment.md) for the firmware prerequisite.
+
 ---
 
 ## 4. UI alert states
@@ -113,7 +116,7 @@ This gate is deliberately scoped to Step 4, where the explanation is visible —
 
 ## 5. Worked examples per industry profile
 
-See [docs/use_cases.md](use_cases.md) for five full worked scenarios (Financial Services, Healthcare, Telecom NFV, Sovereign Gov Cloud, and a multi-vendor storage design) showing exactly which compliance checkboxes, overcommit targets, and live warnings each industry profile produces in practice — including the Sovereign profile's DHSS/CephFS conflict, a real example of two compliance-adjacent settings clashing with each other.
+See [docs/use_cases.md](use_cases.md) for seven full worked scenarios (Financial Services, Healthcare, Telecom NFV, Sovereign Gov Cloud, a multi-vendor storage design, Confidential Computing, and modelling an existing cloud via `export_from_cloud.py`) showing exactly which compliance checkboxes, overcommit targets, and live warnings each industry profile produces in practice — including the Sovereign profile's DHSS/CephFS conflict, a real example of two compliance-adjacent settings clashing with each other.
 
 ---
 
