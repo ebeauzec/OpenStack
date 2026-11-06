@@ -193,7 +193,9 @@ export function generateHLD(inputs, computeResult, cephResult) {
     openstackVersion = '2024.1',
     enableK8s = false,
     k8sMasterCount = 3,
-    k8sWorkerCount = 10
+    k8sWorkerCount = 10,
+    enableConfidentialComputing = false,
+    confidentialComputingTech = 'sev-snp'
   } = inputs;
 
   const complianceText = compliance.map(c => c.toUpperCase()).join(', ');
@@ -237,6 +239,7 @@ This document defines the high-level architecture and physical sizing for a prod
 - **StorageGrid Object Storage:** \`${enableStoragegrid ? 'Integrated S3 Grid' : 'Not Provisioned'}\`.
 - **Aggregate Storage Network Bandwidth:** \`${cephResult.cephNodes * inputs.linkSpeedGbps * 2}\` Gbps aggregated backend capacity.
 ${enableK8s ? `- **Kubernetes Cluster Overlay:** Sized for \`${k8sMasterCount}\` Master and \`${k8sWorkerCount}\` Worker VMs hosted on Nova hypervisors.` : ''}
+${enableConfidentialComputing ? `- **Confidential Computing:** \`${confidentialComputingTech === 'tdx' ? 'Intel TDX' : 'AMD SEV-SNP'}\` memory encryption/attestation enabled (requires OpenStack 2026.2 "Hibiscus"/Nova 34.0.0+ and matching compute-host hardware support). Applied per flavor/image via trait extra specs.` : ''}
 
 ---
 
@@ -775,7 +778,7 @@ export function generateAnsible(inputs, computeResult, cephResult) {
   } = inputs;
 
   const openstackCodenames = {
-    '2026.1': 'Gazpacho', '2025.2': 'Flamingo', '2025.1': 'Epoxy', '2024.2': 'Dalmatian',
+    '2026.2': 'Hibiscus', '2026.1': 'Gazpacho', '2025.2': 'Flamingo', '2025.1': 'Epoxy', '2024.2': 'Dalmatian',
     '2024.1': 'Caracal', '2023.2': 'Bobcat', '2023.1': 'Antelope', zed: 'Zed', yoga: 'Yoga'
   };
   const openstackCodename = openstackCodenames[openstackVersion] || openstackVersion;
@@ -1835,6 +1838,8 @@ export function generateNovaConf(inputs, computeResult) {
     enableBarbican = false,
     novaCpuMode = 'host-model',
     novaInstanceHa = false,
+    enableConfidentialComputing = false,
+    confidentialComputingTech = 'sev-snp',
     compliance = []
   } = inputs;
 
@@ -1856,6 +1861,18 @@ barbican_auth_type = keystone`;
   if (novaCpuMode === 'custom') {
     cpuModeConfig = `cpu_mode = custom
 cpu_model = Broadwell-noTSX`;
+  }
+
+  let confidentialComputingConfig = '';
+  if (enableConfidentialComputing) {
+    const techLabel = confidentialComputingTech === 'tdx' ? 'Intel TDX' : 'AMD SEV-SNP';
+    const traitName = confidentialComputingTech === 'tdx' ? 'COMPUTE_SECURITY_TDX' : 'HW_CPU_X86_AMD_SEV';
+    confidentialComputingConfig = `
+# CONFIDENTIAL COMPUTING (OpenStack 2026.2 "Hibiscus" / Nova 34.0.0+): ${techLabel}
+# Not a host-wide nova.conf setting -- enabled per flavor/image via trait extra specs:
+#   openstack flavor set <flavor> --property trait:${traitName}=required
+#   openstack image set <image> --property hw_mem_encryption=true
+# Requires compute hosts with ${techLabel} hardware support enabled in firmware/BIOS.`;
   }
 
   let instanceHaConfig = '';
@@ -1916,7 +1933,7 @@ enabled = true
 server_listen = 0.0.0.0
 server_proxyclient_address = \$my_ip
 novncproxy_base_url = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:6080/vnc_lite.html
-${barbicanConfig}${schedulerHaConfig}
+${barbicanConfig}${schedulerHaConfig}${confidentialComputingConfig}
 `;
 }
 

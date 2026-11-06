@@ -119,8 +119,8 @@
                 <div class="form-group">
                   <label for="openstackVersion">OpenStack Version</label>
                   <select id="openstackVersion">
-                    <option value="2024.1" selected>2024.1 (Caracal)</option>
-                    <option value="2023.2">2023.2 (Bobcat)</option>
+                    <option value="2026.2" selected>2026.2 (Hibiscus)</option>
+                    <option value="2026.1">2026.1 (Gazpacho)</option>
                     <option value="zed">Zed</option>
                   </select>
                 </div>
@@ -373,6 +373,32 @@
                       </span>
                     </span>
                   </label>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer;">
+                  <input type="checkbox" id="enableConfidentialComputing" style="margin: 0; width: auto;">
+                  <span style="font-weight: 600;">
+                    Enable Confidential Computing
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Confidential Computing</strong>
+                        Hardware memory encryption and attestation for tenant VMs, introduced in OpenStack 2026.2 "Hibiscus" (Nova 34.0.0).
+                        <br><em>Impact:</em> Requires compute hosts with AMD SEV-SNP or Intel TDX support, and OpenStack 2026.2 or later. Enabled per-flavor/image via trait extra specs, not a global nova.conf setting. Strengthens the case for sovereign, financial, and healthcare compliance profiles that require data-in-use protection and attestation.
+                      </span>
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div id="confidential-computing-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group">
+                  <label for="confidentialComputingTech">Confidential Computing Technology</label>
+                  <select id="confidentialComputingTech">
+                    <option value="sev-snp" selected>AMD SEV-SNP (attestation, memory integrity)</option>
+                    <option value="tdx">Intel TDX (memory encryption)</option>
+                  </select>
                 </div>
               </div>
 

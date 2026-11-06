@@ -1498,8 +1498,8 @@ select:focus {
                 <div class="form-group">
                   <label for="openstackVersion">OpenStack Version</label>
                   <select id="openstackVersion">
-                    <option value="2024.1" selected>2024.1 (Caracal)</option>
-                    <option value="2023.2">2023.2 (Bobcat)</option>
+                    <option value="2026.2" selected>2026.2 (Hibiscus)</option>
+                    <option value="2026.1">2026.1 (Gazpacho)</option>
                     <option value="zed">Zed</option>
                   </select>
                 </div>
@@ -1752,6 +1752,32 @@ select:focus {
                       </span>
                     </span>
                   </label>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="checkbox-tile" style="padding: 0.8rem; flex-direction: row; align-items: center; gap: 0.8rem; justify-content: flex-start; cursor: pointer;">
+                  <input type="checkbox" id="enableConfidentialComputing" style="margin: 0; width: auto;">
+                  <span style="font-weight: 600;">
+                    Enable Confidential Computing
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">i</span>
+                      <span class="tooltip-text">
+                        <strong>Confidential Computing</strong>
+                        Hardware memory encryption and attestation for tenant VMs, introduced in OpenStack 2026.2 "Hibiscus" (Nova 34.0.0).
+                        <br><em>Impact:</em> Requires compute hosts with AMD SEV-SNP or Intel TDX support, and OpenStack 2026.2 or later. Enabled per-flavor/image via trait extra specs, not a global nova.conf setting. Strengthens the case for sovereign, financial, and healthcare compliance profiles that require data-in-use protection and attestation.
+                      </span>
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div id="confidential-computing-opts-group" style="display:none; flex-direction:column; gap:1.2rem; border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 1.5rem;">
+                <div class="form-group">
+                  <label for="confidentialComputingTech">Confidential Computing Technology</label>
+                  <select id="confidentialComputingTech">
+                    <option value="sev-snp" selected>AMD SEV-SNP (attestation, memory integrity)</option>
+                    <option value="tdx">Intel TDX (memory encryption)</option>
+                  </select>
                 </div>
               </div>
 
@@ -2992,13 +3018,14 @@ select:focus {
   <script type="application/json" id="version-manifest">
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-09-01T00:00:00Z",
-  "sourceNote": "Curated snapshot, web-verified as of 2026-09-01. Refresh via check_for_updates.py or the in-app Check for Updates button.",
+  "generatedAt": "2026-11-06T00:00:00Z",
+  "sourceNote": "Curated snapshot, web-verified as of 2026-11-06. Refresh via check_for_updates.py or the in-app Check for Updates button.",
   "openstack": {
-    "latest": "2026.1",
-    "upcoming": { "value": "2026.2", "codename": "Hibiscus", "slurp": false, "expectedGaDate": "2026-09-30", "status": "in-development", "notes": "Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA." },
+    "latest": "2026.2",
+    "upcoming": { "value": "2027.1", "codename": "Indri", "slurp": true, "expectedGaDate": "2027-03", "status": "in-development", "notes": "Next SLURP release; operators on 2026.1 (Gazpacho) may skip 2026.2 (Hibiscus, non-SLURP) and upgrade directly to 2027.1 once it ships." },
     "releases": [
-      { "value": "2026.1", "codename": "Gazpacho", "slurp": true, "releaseDate": "2026-04-01", "status": "current" },
+      { "value": "2026.2", "codename": "Hibiscus", "slurp": false, "releaseDate": "2026-09-30", "status": "current", "notes": "Non-SLURP: upgrading from 2025.2 requires passing through 2026.1 first. Nova 34.0.0 highlights: AMD SEV-SNP + Intel TDX confidential computing (flavor/image property gated), Cyborg-managed vGPU mediated devices (OWNER_NOVA trait), cold migration/resize for virtiofs Manila share attachments, AZ unpin/repin microversion, native threading now default (eventlet deprecated). Horizon drops Python 3.9/3.10." },
+      { "value": "2026.1", "codename": "Gazpacho", "slurp": true, "releaseDate": "2026-04-01", "status": "supported" },
       { "value": "2025.2", "codename": "Flamingo", "slurp": false, "releaseDate": "2025-10-01", "status": "supported" },
       { "value": "2025.1", "codename": "Epoxy", "slurp": true, "releaseDate": "2025-04-02", "status": "supported" },
       { "value": "2024.2", "codename": "Dalmatian", "slurp": false, "releaseDate": "2024-10-02", "status": "supported" },
@@ -3027,10 +3054,11 @@ select:focus {
       "notes": "Canonical now steers new small/edge-scale deployments toward Sunbeam (K8s-native, sunbeam cluster bootstrap) instead. Sunbeam is not yet at full outcome parity with classic Charmed OpenStack for large multi-site builds."
     },
     "ceph": {
-      "current": "Tentacle (20.2.4)",
-      "prior": ["Squid (19.2.6)", "Reef (18.x)"],
-      "securityNote": "20.2.4 / 19.2.6 (2026-08-19) is an urgent combined security release fixing 4 CVEs, most notably CVE-2025-30156 (AES-CBC/CephX auth-bypass). Introduces a new CephX key type (aes256k) and a specific key-rotation upgrade procedure; multisite RGW needs an rgw_sigv4_insecure toggle during upgrade. Any Ceph-backed deployment on an older point release should patch to this promptly.",
-      "source": "https://ceph.io/en/news/blog/2026/v20-2-4-v19-2-6-combo-released/"
+      "current": "Tentacle (20.2.5)",
+      "newerSeries": "Umbrella (21.2.0), released 2026-10-28 -- next major line; not yet broadly validated as an OpenStack Cinder/Manila backend, Tentacle remains the recommended stable choice for new OpenStack deployments.",
+      "prior": ["Squid (19.2.7) -- reached EOL 2026-10-31", "Reef (18.x)"],
+      "securityNote": "20.2.4 / 19.2.6 (2026-08-19) was an urgent combined security release fixing 4 CVEs, most notably CVE-2025-30156 (AES-CBC/CephX auth-bypass). Introduced a new CephX key type (aes256k) and a specific key-rotation upgrade procedure; multisite RGW needed an rgw_sigv4_insecure toggle during upgrade. Any Ceph-backed deployment should be at or above 20.2.5 at this point, both for this fix and subsequent point-release patches.",
+      "source": "https://docs.ceph.com/en/latest/releases/"
     },
     "neutronSdn": { "recommended": "ML2/OVN", "legacy": "ML2/OVS", "notes": "OVN has been the recommended default since the Xena/Yoga era; OVS is legacy." }
   },
@@ -3613,7 +3641,9 @@ function generateHLD(inputs, computeResult, cephResult) {
     openstackVersion = '2024.1',
     enableK8s = false,
     k8sMasterCount = 3,
-    k8sWorkerCount = 10
+    k8sWorkerCount = 10,
+    enableConfidentialComputing = false,
+    confidentialComputingTech = 'sev-snp'
   } = inputs;
 
   const complianceText = compliance.map(c => c.toUpperCase()).join(', ');
@@ -3657,6 +3687,7 @@ This document defines the high-level architecture and physical sizing for a prod
 - **StorageGrid Object Storage:** \`${enableStoragegrid ? 'Integrated S3 Grid' : 'Not Provisioned'}\`.
 - **Aggregate Storage Network Bandwidth:** \`${cephResult.cephNodes * inputs.linkSpeedGbps * 2}\` Gbps aggregated backend capacity.
 ${enableK8s ? `- **Kubernetes Cluster Overlay:** Sized for \`${k8sMasterCount}\` Master and \`${k8sWorkerCount}\` Worker VMs hosted on Nova hypervisors.` : ''}
+${enableConfidentialComputing ? `- **Confidential Computing:** \`${confidentialComputingTech === 'tdx' ? 'Intel TDX' : 'AMD SEV-SNP'}\` memory encryption/attestation enabled (requires OpenStack 2026.2 "Hibiscus"/Nova 34.0.0+ and matching compute-host hardware support). Applied per flavor/image via trait extra specs.` : ''}
 
 ---
 
@@ -4195,7 +4226,7 @@ function generateAnsible(inputs, computeResult, cephResult) {
   } = inputs;
 
   const openstackCodenames = {
-    '2026.1': 'Gazpacho', '2025.2': 'Flamingo', '2025.1': 'Epoxy', '2024.2': 'Dalmatian',
+    '2026.2': 'Hibiscus', '2026.1': 'Gazpacho', '2025.2': 'Flamingo', '2025.1': 'Epoxy', '2024.2': 'Dalmatian',
     '2024.1': 'Caracal', '2023.2': 'Bobcat', '2023.1': 'Antelope', zed: 'Zed', yoga: 'Yoga'
   };
   const openstackCodename = openstackCodenames[openstackVersion] || openstackVersion;
@@ -5255,6 +5286,8 @@ function generateNovaConf(inputs, computeResult) {
     enableBarbican = false,
     novaCpuMode = 'host-model',
     novaInstanceHa = false,
+    enableConfidentialComputing = false,
+    confidentialComputingTech = 'sev-snp',
     compliance = []
   } = inputs;
 
@@ -5276,6 +5309,18 @@ barbican_auth_type = keystone`;
   if (novaCpuMode === 'custom') {
     cpuModeConfig = `cpu_mode = custom
 cpu_model = Broadwell-noTSX`;
+  }
+
+  let confidentialComputingConfig = '';
+  if (enableConfidentialComputing) {
+    const techLabel = confidentialComputingTech === 'tdx' ? 'Intel TDX' : 'AMD SEV-SNP';
+    const traitName = confidentialComputingTech === 'tdx' ? 'COMPUTE_SECURITY_TDX' : 'HW_CPU_X86_AMD_SEV';
+    confidentialComputingConfig = `
+# CONFIDENTIAL COMPUTING (OpenStack 2026.2 "Hibiscus" / Nova 34.0.0+): ${techLabel}
+# Not a host-wide nova.conf setting -- enabled per flavor/image via trait extra specs:
+#   openstack flavor set <flavor> --property trait:${traitName}=required
+#   openstack image set <image> --property hw_mem_encryption=true
+# Requires compute hosts with ${techLabel} hardware support enabled in firmware/BIOS.`;
   }
 
   let instanceHaConfig = '';
@@ -5336,7 +5381,7 @@ enabled = true
 server_listen = 0.0.0.0
 server_proxyclient_address = \$my_ip
 novncproxy_base_url = https://${getIpAddress(inputs.extSubnet || '10.10.100.0/24', ctrlStart - 1)}:6080/vnc_lite.html
-${barbicanConfig}${schedulerHaConfig}
+${barbicanConfig}${schedulerHaConfig}${confidentialComputingConfig}
 `;
 }
 
@@ -6858,7 +6903,7 @@ const state = {
   inputs: {
     projectName: 'CSP Cloud Production-West',
     openstackDistro: 'kolla',
-    openstackVersion: '2026.1',
+    openstackVersion: '2026.2',
     cspScale: 'medium',
     industry: 'financial',
     compliance: ['soc2', 'pci-dss'],
@@ -6876,6 +6921,8 @@ const state = {
     haBuffer: 2,
     novaCpuMode: 'host-model',
     novaInstanceHa: false,
+    enableConfidentialComputing: false,
+    confidentialComputingTech: 'sev-snp',
     enableK8s: false,
     k8sMasterCount: 3,
     k8sMasterVcpus: 4,
@@ -6986,13 +7033,14 @@ const defaultInputs = JSON.parse(JSON.stringify(state.inputs));
 // This is DATA ONLY -- never executed as code, whether loaded locally or fetched from MANIFEST_URL.
 const EMBEDDED_MANIFEST = {
   manifestVersion: 1,
-  generatedAt: '2026-09-01T00:00:00Z',
-  sourceNote: 'Curated snapshot, web-verified as of 2026-09-01.',
+  generatedAt: '2026-11-06T00:00:00Z',
+  sourceNote: 'Curated snapshot, web-verified as of 2026-11-06.',
   openstack: {
-    latest: '2026.1',
-    upcoming: { value: '2026.2', codename: 'Hibiscus', slurp: false, expectedGaDate: '2026-09-30', status: 'in-development', notes: 'Not yet released as of 2026-09-01 (RC/freeze phase); do not offer as a selectable deployment target until GA.' },
+    latest: '2026.2',
+    upcoming: { value: '2027.1', codename: 'Indri', slurp: true, expectedGaDate: '2027-03', status: 'in-development', notes: 'Next SLURP release; operators on 2026.1 (Gazpacho) may skip 2026.2 (Hibiscus, non-SLURP) and upgrade directly to 2027.1 once it ships.' },
     releases: [
-      { value: '2026.1', codename: 'Gazpacho', slurp: true, releaseDate: '2026-04-01', status: 'current' },
+      { value: '2026.2', codename: 'Hibiscus', slurp: false, releaseDate: '2026-09-30', status: 'current', notes: 'Non-SLURP: upgrading from 2025.2 requires passing through 2026.1 first. Nova 34.0.0 highlights: AMD SEV-SNP + Intel TDX confidential computing (flavor/image property gated), Cyborg-managed vGPU mediated devices (OWNER_NOVA trait), cold migration/resize for virtiofs Manila share attachments, AZ unpin/repin microversion, native threading now default (eventlet deprecated). Horizon drops Python 3.9/3.10.' },
+      { value: '2026.1', codename: 'Gazpacho', slurp: true, releaseDate: '2026-04-01', status: 'supported' },
       { value: '2025.2', codename: 'Flamingo', slurp: false, releaseDate: '2025-10-01', status: 'supported' },
       { value: '2025.1', codename: 'Epoxy', slurp: true, releaseDate: '2025-04-02', status: 'supported' },
       { value: '2024.2', codename: 'Dalmatian', slurp: false, releaseDate: '2024-10-02', status: 'supported' },
@@ -7015,7 +7063,7 @@ const EMBEDDED_MANIFEST = {
   adjacentProjects: {
     kollaAnsible: 'Actively maintained, tracks the upstream release train.',
     canonicalCharmedOpenstack: 'Actively maintained (classic charms); Canonical steers new small/edge deployments toward Sunbeam (K8s-native) instead.',
-    ceph: 'Current stable: Tentacle (20.2.4). SECURITY: 20.2.4/19.2.6 (2026-08-19) is an urgent release fixing 4 CVEs incl. CVE-2025-30156 (CephX auth-bypass) -- patch promptly if on an older point release. Prior: Squid (19.2.6), Reef (18.x).',
+    ceph: 'Current stable: Tentacle (20.2.5). Newer major line Umbrella (21.2.0, 2026-10-28) exists but is not yet broadly validated as an OpenStack backend -- Tentacle remains recommended. SECURITY: 20.2.4/19.2.6 (2026-08-19) was an urgent release fixing 4 CVEs incl. CVE-2025-30156 (CephX auth-bypass) -- ensure at least 20.2.5. Prior: Squid (19.2.7, EOL 2026-10-31), Reef (18.x).',
     neutronSdn: 'ML2/OVN is the recommended default; ML2/OVS is legacy.'
   },
   compliance: {
@@ -7078,6 +7126,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function toggleDynamicViews() {
   // 1. Dynamic OpenStack version dropdown options update
   updateVersionOptions();
+
+  // 1a. Confidential Computing tech options panel visibility
+  const confCompOpts = document.getElementById('confidential-computing-opts-group');
+  if (confCompOpts) {
+    confCompOpts.style.display = state.inputs.enableConfidentialComputing ? 'flex' : 'none';
+  }
 
   // 2. Kubernetes options panel visibility
   const k8sOpts = document.getElementById('k8s-opts-group');
@@ -7177,7 +7231,8 @@ function updateVersionOptions() {
 
   const versionsMap = {
     kolla: [
-      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP, Current)' },
+      { value: '2026.2', label: '2026.2 (Hibiscus - Current)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
       { value: '2025.2', label: '2025.2 (Flamingo)' },
       { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
       { value: '2024.2', label: '2024.2 (Dalmatian)' },
@@ -7188,7 +7243,8 @@ function updateVersionOptions() {
       { value: 'yoga', label: 'Yoga (EOL)' }
     ],
     juju: [
-      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP, Current)' },
+      { value: '2026.2', label: '2026.2 (Hibiscus - Current)' },
+      { value: '2026.1', label: '2026.1 (Gazpacho - SLURP)' },
       { value: '2025.2', label: '2025.2 (Flamingo)' },
       { value: '2025.1', label: '2025.1 (Epoxy - SLURP)' },
       { value: '2024.2', label: '2024.2 (Dalmatian)' },
@@ -7398,7 +7454,7 @@ function setupEventListeners() {
   const inputsToWatch = [
     'projectName', 'openstackDistro', 'openstackVersion', 'cspScale', 'industry', 'vmCount', 'vmVcpus', 'vmRam', 'vmDisk',
     'cpuOvercommit', 'ramOvercommit', 'nodeCores', 'nodeRam', 'nodeDisk', 'haBuffer',
-    'novaCpuMode', 'novaInstanceHa',
+    'novaCpuMode', 'novaInstanceHa', 'enableConfidentialComputing', 'confidentialComputingTech',
     'enableK8s', 'k8sMasterCount', 'k8sWorkerCount', 'k8sMasterVcpus', 'k8sMasterRam',
     'k8sWorkerVcpus', 'k8sWorkerRam', 'k8sWorkerDisk', 'k8sCni', 'k8sCsi', 'enableVelero',
     'cinderCapacityTb', 'cinderNetAppIp', 'cinderNetAppSvm', 'cinderNetAppProto', 'netappDedup',
@@ -7459,8 +7515,9 @@ function setupEventListeners() {
         toggleDynamicViews();
         runCalculations();
         updateUI();
+        updateComplianceText();
       };
-      
+
       el.addEventListener('input', updateValue);
       el.addEventListener('change', updateValue);
     }
@@ -8276,7 +8333,12 @@ function updateComplianceText() {
   if (list.includes('nca_cscc') || list.includes('desc_csp') || list.includes('soc2') || list.includes('pci-dss')) {
     text += ' Rsyslog SIEM forwarding must capture Keystone token modifications, root CLI access executions, and storage access log payloads.';
   }
- 
+
+  if (state.inputs.enableConfidentialComputing) {
+    const techLabel = state.inputs.confidentialComputingTech === 'tdx' ? 'Intel TDX' : 'AMD SEV-SNP';
+    text += ` Confidential Computing (${techLabel}, OpenStack 2026.2+) is enabled, providing hardware memory encryption and attestation for data-in-use -- strengthens the case for sovereign, financial, and healthcare data-protection controls.`;
+  }
+
   infoBlock.innerHTML = text;
 }
  
