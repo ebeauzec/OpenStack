@@ -1292,8 +1292,8 @@ select:focus {
 }
 
 .legend-dot.ctrl {
-  background: var(--accent-cyan);
-  box-shadow: 0 0 6px var(--accent-cyan);
+  background: var(--accent-yellow);
+  box-shadow: 0 0 6px var(--accent-yellow);
 }
 
 .legend-dot.data {
